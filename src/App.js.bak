@@ -1,0 +1,2503 @@
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  Alert,
+  Animated,
+  Easing,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Picker } from '@react-native-picker/picker';
+import BackMuscleDiagramSvg from '../components/BackMuscleDiagramSvg';
+import FrontMuscleDiagramSvg from '../components/FrontMuscleDiagramSvg';
+import MonthlyVolumeChart from '../components/MonthlyVolumeChart';
+import WeightProgressChart from '../components/WeightProgressChart';
+import { buildExerciseLookup, EXERCISE_DATABASE } from '../data/exerciseDatabase';
+import { aggregateWorkoutMuscleHeat } from '../data/workoutMuscleHeat';
+import {
+  buildMonthlyDailyVolume,
+  buildYearlyMonthlyVolume,
+  countWorkoutsInMonth,
+  formatHeightFeetInchesLabel,
+  formatVolumeCompact,
+  getDaysInMonth,
+  getWorkoutVolumeLb,
+  inchesToProfileHeightPickers,
+  profileHeightPickersToInches,
+  PROFILE_HEIGHT_FT_SENTINEL,
+} from '../utils/workoutStats';
+
+import {
+  HISTORY_STORAGE_KEY,
+  THEME_STORAGE_KEY,
+  PROFILE_NAME_STORAGE_KEY,
+  PROFILE_BODY_STORAGE_KEY,
+  WEIGHT_LOGS_STORAGE_KEY,
+} from './constants/storageKeys';
+import {
+  MAIN_TAB_NAV_BAR_HEIGHT,
+  MUSCLE_PULLOUT_DIAGRAM_HEIGHT,
+  MUSCLE_PULLOUT_DRAWER_WIDTH,
+  SCREEN_TRANSITION_MS,
+} from './constants/layout';
+import { FRONT_MUSCLE_ZONES, BACK_MUSCLE_ZONES } from './constants/muscleZones';
+import { WORKOUT_THEME } from './theme/workoutTheme';
+import { formatTime, isBodyweightOnlyExercise, formatWorkoutSetSummaryText } from './utils/formatWorkout';
+import { styles } from './styles';
+import MainTabsLayout from './navigation/MainTabsLayout';
+import MainBottomTabBar from './navigation/bottomTabBar/MainBottomTabBar';
+import MenuHomeTabScreen from './screens/MenuHomeTabScreen';
+import MoreHubTabScreen from './screens/MoreHubTabScreen';
+import StreakScreen from './screens/StreakScreen';
+import MoreGoalsScreen from './screens/MoreGoalsScreen';
+import AppearanceScreen from './screens/AppearanceScreen';
+import ProfileScreen from './screens/ProfileScreen';
+import SummaryScreen from './screens/SummaryScreen';
+import { useWorkoutWallClockTimer } from './hooks/useWorkoutWallClockTimer';
+import { useBodyweightRepsAutofocus } from './hooks/useBodyweightRepsAutofocus';
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
+  );
+}
+
+function AppContent() {
+  const nowForDefaults = new Date();
+  const insets = useSafeAreaInsets();
+  const mainTabBottomReserve = MAIN_TAB_NAV_BAR_HEIGHT + insets.bottom;
+  const [currentScreen, setCurrentScreen] = useState('menu');
+  const [historySelectedMonth, setHistorySelectedMonth] = useState(nowForDefaults.getMonth());
+  const [historySelectedYear, setHistorySelectedYear] = useState(nowForDefaults.getFullYear());
+  const [historyChartMode, setHistoryChartMode] = useState('month');
+  const [theme, setTheme] = useState('light');
+  const [hasLoadedTheme, setHasLoadedTheme] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [profileNameDraft, setProfileNameDraft] = useState('');
+  const [profileHeightIn, setProfileHeightIn] = useState(null);
+  const [profileGoalWeightLb, setProfileGoalWeightLb] = useState(null);
+  const [profileHeightPickFeet, setProfileHeightPickFeet] = useState(PROFILE_HEIGHT_FT_SENTINEL);
+  const [profileHeightPickInches, setProfileHeightPickInches] = useState(0);
+  const [profileHeightEditorOpen, setProfileHeightEditorOpen] = useState(false);
+  const [profileGoalDraft, setProfileGoalDraft] = useState('');
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  /** When set, workout elapsed time = (Date.now() - this) / 1000 so the timer stays correct in the background. */
+  const workoutTimerOriginMsRef = useRef(null);
+  const [selectedMovement, setSelectedMovement] = useState('');
+  const [customMovementName, setCustomMovementName] = useState('');
+  const [exerciseSearchQuery, setExerciseSearchQuery] = useState('');
+  const [notepadWeightInput, setNotepadWeightInput] = useState('');
+  const [notepadRepsInput, setNotepadRepsInput] = useState('');
+  const notepadWeightInputRef = useRef(null);
+  const notepadRepsRef = useRef(null);
+  /** After Profile, History, Database, etc.: return to `menu` (Home) or `settings` (More tab). */
+  const subNavigatorReturnRef = useRef('menu');
+  /** More hub list: keep scroll position when opening a subscreen and coming back. */
+  const moreHubScrollViewRef = useRef(null);
+  const moreHubScrollYRef = useRef(0);
+  const [useCustomMovement, setUseCustomMovement] = useState(false);
+  const [editingSetKey, setEditingSetKey] = useState(null);
+  const [editingReps, setEditingReps] = useState('0');
+  const [editingWeight, setEditingWeight] = useState('0');
+  const [isMuscleTabOpen, setIsMuscleTabOpen] = useState(false);
+  const musclePulloutWidthAnim = useRef(new Animated.Value(0)).current;
+  const screenTransitionOpacity = useRef(new Animated.Value(1)).current;
+  const hasSkippedInitialScreenFade = useRef(false);
+  const [workoutHelpModalVisible, setWorkoutHelpModalVisible] = useState(false);
+  const [workoutHistory, setWorkoutHistory] = useState([]);
+  const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
+  const [weightLogs, setWeightLogs] = useState([]);
+  const [hasLoadedWeightLogs, setHasLoadedWeightLogs] = useState(false);
+  const [isWeightLogModalVisible, setIsWeightLogModalVisible] = useState(false);
+  const [weightLogDraftValue, setWeightLogDraftValue] = useState('');
+  const [weightLogDraftDate, setWeightLogDraftDate] = useState('');
+  const [historyWeightPanelTab, setHistoryWeightPanelTab] = useState('graph');
+  const [isWeightDatePickerVisible, setIsWeightDatePickerVisible] = useState(false);
+  const [weightDatePickYear, setWeightDatePickYear] = useState(nowForDefaults.getFullYear());
+  const [weightDatePickMonth, setWeightDatePickMonth] = useState(nowForDefaults.getMonth() + 1);
+  const [weightDatePickDay, setWeightDatePickDay] = useState(nowForDefaults.getDate());
+  const [muscleViewSide, setMuscleViewSide] = useState('front');
+  const [selectedMuscleName, setSelectedMuscleName] = useState('');
+  const [isMuscleModalVisible, setIsMuscleModalVisible] = useState(false);
+  const muscleDiagramOpacity = useRef(new Animated.Value(1)).current;
+  const isMuscleSideTransitioningRef = useRef(false);
+  const workoutScrollRef = useRef(null);
+  const workoutScrollYRef = useRef(0);
+  const exerciseSearchRowRef = useRef(null);
+  const exerciseSearchFocusedRef = useRef(false);
+  const lastKeyboardFrameRef = useRef(null);
+  const scrollExerciseSearchAboveKeyboard = useCallback((endCoords) => {
+    if (!endCoords || !workoutScrollRef.current || !exerciseSearchRowRef.current) return;
+    const keyboardTop = endCoords.screenY;
+    exerciseSearchRowRef.current.measureInWindow((_fx, fy, _fw, fh) => {
+      const clearance = keyboardTop - 16;
+      const bottom = fy + fh;
+      if (bottom <= clearance) return;
+      const delta = bottom - clearance;
+      const nextY = workoutScrollYRef.current + delta;
+      workoutScrollRef.current.scrollTo({ y: Math.max(0, nextY), animated: true });
+    });
+  }, []);
+  // Save a full history array to AsyncStorage.
+  // We keep this in one helper so save logic is easy to reuse.
+  async function saveHistoryToStorage(historyArray) {
+    if (__DEV__) {
+      console.log('Saving history to AsyncStorage...');
+    }
+    await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(historyArray));
+    if (__DEV__) {
+      console.log(`Saved ${historyArray.length} workouts to AsyncStorage`);
+    }
+  }
+
+  // Load history from AsyncStorage when app opens.
+  // If nothing is saved yet, return an empty list.
+  async function loadHistoryFromStorage() {
+    if (__DEV__) {
+      console.log('Loading history from AsyncStorage...');
+    }
+    const savedHistoryJson = await AsyncStorage.getItem(HISTORY_STORAGE_KEY);
+    if (!savedHistoryJson) return [];
+
+    const parsedHistory = JSON.parse(savedHistoryJson);
+    if (!Array.isArray(parsedHistory)) return [];
+    return parsedHistory;
+  }
+
+  async function saveWeightLogsToStorage(logsArray) {
+    await AsyncStorage.setItem(WEIGHT_LOGS_STORAGE_KEY, JSON.stringify(logsArray));
+  }
+
+  async function loadWeightLogsFromStorage() {
+    const raw = await AsyncStorage.getItem(WEIGHT_LOGS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item) => item && typeof item === 'object');
+  }
+
+
+  // We store sets grouped by movement name:
+  // {
+  //   "Bench Press": [{ reps: 10, elapsedSeconds: 75 }, ...],
+  //   "Pull Up": [{ reps: 12, elapsedSeconds: 220 }]
+  // }
+  const [setsByMovement, setSetsByMovement] = useState({});
+  const sampleMovements = EXERCISE_DATABASE.map((exerciseItem) => exerciseItem.name);
+  const filteredExerciseNames = useMemo(() => {
+    const query = exerciseSearchQuery.trim().toLowerCase();
+    if (!query) return sampleMovements;
+    return sampleMovements.filter((name) => name.toLowerCase().includes(query));
+  }, [exerciseSearchQuery, sampleMovements]);
+  const exerciseLookup = useMemo(() => buildExerciseLookup(EXERCISE_DATABASE), []);
+  const activeMovementName = useCustomMovement ? customMovementName.trim() : selectedMovement.trim();
+
+  const activeIsBodyweightOnly = isBodyweightOnlyExercise(activeMovementName, exerciseLookup);
+
+  const isLightTheme = theme === 'light';
+  const colors = isLightTheme
+    ? {
+        screenBackground: '#EDEDED',
+        menuBackground: '#EDEDED',
+        dashboardCard: '#3B73BB',
+        dashboardText: '#EAF0FF',
+        streakValue: '#F4F8FF',
+        menuPanel: '#C8D1E0',
+        menuActionButton: '#F4F4F5',
+        menuActionText: '#151266',
+        primaryButton: '#3B73BB',
+        primaryButtonText: '#FFFFFF',
+        secondaryButton: '#C8D1E0',
+        secondaryButtonText: '#151266',
+        textPrimary: '#151266',
+        textSecondary: '#2F343C',
+        inputBg: '#FFFFFF',
+        inputText: '#1B1E23',
+        inputBorder: '#C8D1E0',
+        cardBg: '#FFFFFF',
+        setText: '#2F343C',
+        deleteText: '#B42318',
+        weightButton: '#DDE3EF',
+        arrowButton: '#DDE3EF',
+      }
+    : {
+        screenBackground: '#111214',
+        menuBackground: '#111214',
+        dashboardCard: '#2F66AD',
+        dashboardText: '#EAF1FF',
+        streakValue: '#F2F6FF',
+        menuPanel: '#171A1F',
+        menuActionButton: '#252A32',
+        menuActionText: '#E6E8EC',
+        primaryButton: '#3B82F6',
+        primaryButtonText: '#FFFFFF',
+        secondaryButton: '#252A32',
+        secondaryButtonText: '#E6E8EC',
+        textPrimary: '#FFFFFF',
+        textSecondary: '#B7BCC5',
+        inputBg: '#1B1E23',
+        inputText: '#FFFFFF',
+        inputBorder: '#2F343C',
+        cardBg: '#1E232B',
+        setText: '#D8DDE6',
+        deleteText: '#FF7C7C',
+        weightButton: '#2A2F38',
+        arrowButton: '#2A2F38',
+      };
+
+  useWorkoutWallClockTimer(currentScreen, setElapsedSeconds, workoutTimerOriginMsRef);
+  useBodyweightRepsAutofocus({
+    currentScreen,
+    useCustomMovement,
+    selectedMovement,
+    exerciseLookup,
+    notepadRepsRef,
+  });
+
+  // On first app load, read saved workouts from device storage
+  // and place them into local React state.
+  useEffect(() => {
+    async function loadWorkoutHistory() {
+      try {
+        const loadedHistory = await loadHistoryFromStorage();
+        setWorkoutHistory(loadedHistory);
+        if (__DEV__) {
+          console.log(`Number of workouts loaded: ${loadedHistory.length}`);
+        }
+      } catch (error) {
+        console.warn('Failed to load workout history', error);
+      } finally {
+        setHasLoadedHistory(true);
+      }
+    }
+
+    loadWorkoutHistory();
+  }, []);
+
+  useEffect(() => {
+    async function loadWeightLogs() {
+      try {
+        const loadedLogs = await loadWeightLogsFromStorage();
+        setWeightLogs(loadedLogs);
+      } catch (error) {
+        console.warn('Failed to load weight logs', error);
+      } finally {
+        setHasLoadedWeightLogs(true);
+      }
+    }
+
+    loadWeightLogs();
+  }, []);
+
+  // Load saved theme preference on app launch.
+  useEffect(() => {
+    async function loadThemePreference() {
+      try {
+        const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+        if (savedTheme === 'light' || savedTheme === 'dark') {
+          setTheme(savedTheme);
+        }
+      } catch (error) {
+        console.warn('Failed to load theme preference', error);
+      } finally {
+        setHasLoadedTheme(true);
+      }
+    }
+
+    loadThemePreference();
+  }, []);
+
+  // Load saved profile once on app launch.
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const savedProfileName = await AsyncStorage.getItem(PROFILE_NAME_STORAGE_KEY);
+        if (savedProfileName) {
+          setProfileName(savedProfileName);
+          setProfileNameDraft(savedProfileName);
+        }
+      } catch (error) {
+        console.warn('Failed to load profile name', error);
+      }
+      try {
+        const savedBodyRaw = await AsyncStorage.getItem(PROFILE_BODY_STORAGE_KEY);
+        if (savedBodyRaw) {
+          const body = JSON.parse(savedBodyRaw);
+          const hin = typeof body.heightIn === 'number' ? body.heightIn : null;
+          const glb = typeof body.goalWeightLb === 'number' ? body.goalWeightLb : null;
+          setProfileHeightIn(hin !== null && !Number.isNaN(hin) && hin > 0 ? hin : null);
+          setProfileGoalWeightLb(glb !== null && !Number.isNaN(glb) && glb > 0 ? glb : null);
+          {
+            const heightPick =
+              hin !== null && !Number.isNaN(hin) && hin > 0
+                ? inchesToProfileHeightPickers(hin)
+                : inchesToProfileHeightPickers(null);
+            setProfileHeightPickFeet(heightPick.feet);
+            setProfileHeightPickInches(heightPick.inches);
+          }
+          setProfileGoalDraft(
+            glb !== null && !Number.isNaN(glb) && glb > 0 ? String(Math.round(glb * 100) / 100) : '',
+          );
+        }
+      } catch (error) {
+        console.warn('Failed to load profile body', error);
+      }
+    }
+
+    loadProfile();
+  }, []);
+
+  // Persist automatically whenever history changes.
+  // We wait until initial load finishes so we do not overwrite storage
+  // with an empty array before reading existing data.
+  useEffect(() => {
+    if (!hasLoadedHistory) return;
+
+    async function persistHistory() {
+      try {
+        await saveHistoryToStorage(workoutHistory);
+      } catch (error) {
+        console.warn('Failed to auto-save workout history', error);
+      }
+    }
+
+    persistHistory();
+  }, [workoutHistory, hasLoadedHistory]);
+
+  useEffect(() => {
+    if (!hasLoadedWeightLogs) return;
+
+    async function persistWeightLogs() {
+      try {
+        await saveWeightLogsToStorage(weightLogs);
+      } catch (error) {
+        console.warn('Failed to auto-save weight logs', error);
+      }
+    }
+
+    persistWeightLogs();
+  }, [weightLogs, hasLoadedWeightLogs]);
+
+  // Persist theme whenever it changes.
+  useEffect(() => {
+    if (!hasLoadedTheme) return;
+
+    async function persistThemePreference() {
+      try {
+        await AsyncStorage.setItem(THEME_STORAGE_KEY, theme);
+      } catch (error) {
+        console.warn('Failed to save theme preference', error);
+      }
+    }
+
+    persistThemePreference();
+  }, [theme, hasLoadedTheme]);
+
+  /** When exercise search is focused, scroll it above the keyboard (search stays in normal layout) */
+  useEffect(() => {
+    if (currentScreen !== 'workout') {
+      exerciseSearchFocusedRef.current = false;
+      lastKeyboardFrameRef.current = null;
+      return undefined;
+    }
+
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = (e) => {
+      const coords = e?.endCoordinates;
+      if (coords) lastKeyboardFrameRef.current = coords;
+      if (!coords || !exerciseSearchFocusedRef.current) return;
+      if (Platform.OS === 'android') {
+        requestAnimationFrame(() => setTimeout(() => scrollExerciseSearchAboveKeyboard(coords), 80));
+      } else {
+        requestAnimationFrame(() => scrollExerciseSearchAboveKeyboard(coords));
+      }
+    };
+
+    const onHide = () => {
+      lastKeyboardFrameRef.current = null;
+    };
+
+    const subShow = Keyboard.addListener(showEvt, onShow);
+    const subHide = Keyboard.addListener(hideEvt, onHide);
+    return () => {
+      subShow.remove();
+      subHide.remove();
+    };
+  }, [currentScreen, scrollExerciseSearchAboveKeyboard]);
+
+  useEffect(() => {
+    if (currentScreen !== 'workout') {
+      musclePulloutWidthAnim.stopAnimation();
+      musclePulloutWidthAnim.setValue(0);
+      setIsMuscleTabOpen(false);
+    }
+  }, [currentScreen, musclePulloutWidthAnim]);
+
+  useEffect(() => {
+    if (!hasSkippedInitialScreenFade.current) {
+      hasSkippedInitialScreenFade.current = true;
+      return;
+    }
+    screenTransitionOpacity.setValue(0);
+    Animated.timing(screenTransitionOpacity, {
+      toValue: 1,
+      duration: SCREEN_TRANSITION_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [currentScreen, screenTransitionOpacity]);
+
+  const handleMoreHubScroll = useCallback((event) => {
+    moreHubScrollYRef.current = event.nativeEvent.contentOffset.y;
+  }, []);
+
+  const restoreMoreHubScrollPosition = useCallback(() => {
+    const y = moreHubScrollYRef.current;
+    if (y <= 0) return;
+    moreHubScrollViewRef.current?.scrollTo({ y, animated: false });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (currentScreen !== 'settings') return undefined;
+    restoreMoreHubScrollPosition();
+    const id = requestAnimationFrame(() => restoreMoreHubScrollPosition());
+    return () => cancelAnimationFrame(id);
+  }, [currentScreen, restoreMoreHubScrollPosition]);
+
+  const toggleWorkoutMusclePullout = useCallback(() => {
+    setIsMuscleTabOpen((wasOpen) => {
+      if (wasOpen) {
+        Animated.timing(musclePulloutWidthAnim, {
+          toValue: 0,
+          duration: 280,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: false,
+        }).start(({ finished }) => {
+          if (finished) setIsMuscleTabOpen(false);
+        });
+        return true;
+      }
+      Animated.timing(musclePulloutWidthAnim, {
+        toValue: MUSCLE_PULLOUT_DRAWER_WIDTH,
+        duration: 340,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+      return true;
+    });
+  }, [musclePulloutWidthAnim]);
+  function getSafeWeightValue(weightText) {
+    const numericValue = Number.parseFloat(weightText);
+    if (Number.isNaN(numericValue) || numericValue < 0) return 0;
+    return numericValue;
+  }
+
+  function appendSetForExercise(exerciseName, setWeight, setReps, timeSeconds) {
+    const originMs = workoutTimerOriginMsRef.current;
+    const resolvedElapsed =
+      typeof timeSeconds === 'number'
+        ? timeSeconds
+        : originMs != null
+          ? Math.max(0, Math.floor((Date.now() - originMs) / 1000))
+          : elapsedSeconds;
+    const newSet = {
+      reps: setReps,
+      weight: setWeight,
+      elapsedSeconds: resolvedElapsed,
+    };
+    setSetsByMovement((previousValue) => {
+      const existingSets = previousValue[exerciseName] || [];
+      return {
+        ...previousValue,
+        [exerciseName]: [...existingSets, newSet],
+      };
+    });
+  }
+
+  function sanitizeNotepadWeight(text) {
+    let out = '';
+    let sawDot = false;
+    for (let i = 0; i < text.length; i += 1) {
+      const c = text[i];
+      if (c >= '0' && c <= '9') {
+        out += c;
+      } else if (c === '.' && !sawDot) {
+        sawDot = true;
+        out += c;
+      }
+    }
+    return out;
+  }
+
+  function sanitizeNotepadReps(text) {
+    return text.replace(/\D/g, '');
+  }
+
+  function resetNotepadInput() {
+    setNotepadWeightInput('');
+    setNotepadRepsInput('');
+  }
+
+  function focusNotepadRepsField() {
+    notepadRepsRef.current?.focus();
+  }
+
+  /** Space in the weight field jumps to reps (also strips any spaces / non-numeric except one dot). */
+  function handleNotepadWeightChange(text) {
+    if (/\s/.test(text)) {
+      const beforeSpace = text.split(/\s/)[0];
+      setNotepadWeightInput(sanitizeNotepadWeight(beforeSpace));
+      focusNotepadRepsField();
+      return;
+    }
+    setNotepadWeightInput(sanitizeNotepadWeight(text));
+  }
+
+  /** Enter / newline in the reps field saves the set. */
+  function handleNotepadRepsChange(text) {
+    if (text.includes('\n')) {
+      const cleaned = sanitizeNotepadReps(text.replace(/\n/g, ''));
+      setNotepadRepsInput(cleaned);
+      commitNotepadSet(undefined, cleaned);
+      return;
+    }
+    setNotepadRepsInput(sanitizeNotepadReps(text));
+  }
+
+  function commitNotepadSet(weightOverride, repsOverride) {
+    const exercise = activeMovementName.trim();
+    if (!exercise) {
+      Alert.alert('Exercise Required', 'Choose an exercise below before saving a set.');
+      return;
+    }
+    const needsWeight = !isBodyweightOnlyExercise(exercise, exerciseLookup);
+    const w = (weightOverride !== undefined ? weightOverride : notepadWeightInput).trim();
+    const r = (repsOverride !== undefined ? repsOverride : notepadRepsInput).trim();
+    if (needsWeight) {
+      if (!w || !r) {
+        Alert.alert('Incomplete set', 'Enter weight and reps, then press Enter.');
+        return;
+      }
+    } else if (!r) {
+      Alert.alert('Incomplete set', 'Enter reps, then press Enter.');
+      return;
+    }
+    const parsedWeight = needsWeight ? Number.parseFloat(w) : 0;
+    const parsedReps = Number.parseInt(r, 10);
+    if (needsWeight) {
+      if (Number.isNaN(parsedWeight) || parsedWeight < 0 || Number.isNaN(parsedReps) || parsedReps < 0) {
+        Alert.alert('Invalid numbers', 'Weight must be 0 or more. Reps must be 0 or more.');
+        return;
+      }
+    } else if (Number.isNaN(parsedReps) || parsedReps < 0) {
+      Alert.alert('Invalid numbers', 'Reps must be 0 or more.');
+      return;
+    }
+    appendSetForExercise(exercise, parsedWeight, parsedReps);
+    resetNotepadInput();
+    requestAnimationFrame(() => {
+      if (isBodyweightOnlyExercise(exercise, exerciseLookup)) {
+        notepadRepsRef.current?.focus();
+      } else {
+        notepadWeightInputRef.current?.focus();
+      }
+    });
+  }
+
+  function handleNextMovement() {
+    setSelectedMovement('');
+    setCustomMovementName('');
+    setUseCustomMovement(false);
+    setExerciseSearchQuery('');
+    resetNotepadInput();
+  }
+
+  async function handleEndWorkout() {
+    const originMs = workoutTimerOriginMsRef.current;
+    const finalElapsedSeconds =
+      originMs != null ? Math.max(0, Math.floor((Date.now() - originMs) / 1000)) : elapsedSeconds;
+    const completedWorkout = {
+      id: `${Date.now()}`,
+      completedAt: new Date().toISOString(),
+      elapsedSeconds: finalElapsedSeconds,
+      setsByMovement,
+      totalReps,
+    };
+
+    try {
+      const updatedHistory = [completedWorkout, ...workoutHistory];
+      setWorkoutHistory(updatedHistory);
+      // Save immediately when workout ends so it still exists
+      // after app close/reopen.
+      await saveHistoryToStorage(updatedHistory);
+    } catch (error) {
+      console.warn('Failed to save workout history', error);
+      Alert.alert('Save Failed', 'Workout ended, but history could not be saved this time.');
+    }
+
+    setCurrentScreen('summary');
+  }
+
+  function handleStartNewWorkout() {
+    setElapsedSeconds(0);
+    setSelectedMovement('');
+    setCustomMovementName('');
+    setUseCustomMovement(false);
+    setExerciseSearchQuery('');
+    setSetsByMovement({});
+    resetNotepadInput();
+    setCurrentScreen('workout');
+  }
+
+  function handleSelectMovement(movement) {
+    setSelectedMovement(movement);
+    setUseCustomMovement(false);
+    setExerciseSearchQuery('');
+    resetNotepadInput();
+  }
+
+  function handleSelectCustomMovement() {
+    setSelectedMovement('');
+    setUseCustomMovement(true);
+    setExerciseSearchQuery('');
+    resetNotepadInput();
+  }
+
+  function handleReturnToMenu() {
+    setCurrentScreen('menu');
+  }
+
+  function handleReturnFromSubscreen() {
+    setCurrentScreen(subNavigatorReturnRef.current === 'settings' ? 'settings' : 'menu');
+  }
+
+  function prepareProfileDraftsForEdit() {
+    setProfileNameDraft(profileName);
+    {
+      const heightPick =
+        profileHeightIn != null
+          ? inchesToProfileHeightPickers(profileHeightIn)
+          : inchesToProfileHeightPickers(null);
+      setProfileHeightPickFeet(heightPick.feet);
+      setProfileHeightPickInches(heightPick.inches);
+    }
+    setProfileGoalDraft(
+      profileGoalWeightLb != null ? String(Math.round(profileGoalWeightLb * 100) / 100) : '',
+    );
+    setProfileHeightEditorOpen(false);
+  }
+
+  function handleOpenHistory() {
+    subNavigatorReturnRef.current = 'menu';
+    const now = new Date();
+    setHistorySelectedMonth(now.getMonth());
+    setHistorySelectedYear(now.getFullYear());
+    setHistoryChartMode('month');
+    setCurrentScreen('history');
+  }
+
+  function handleOpenHistoryFromMore() {
+    subNavigatorReturnRef.current = 'settings';
+    const now = new Date();
+    setHistorySelectedMonth(now.getMonth());
+    setHistorySelectedYear(now.getFullYear());
+    setHistoryChartMode('month');
+    setCurrentScreen('history');
+  }
+
+  function handleOpenDatabase() {
+    subNavigatorReturnRef.current = 'menu';
+    setCurrentScreen('database');
+  }
+
+  function handleOpenDatabaseFromMore() {
+    subNavigatorReturnRef.current = 'settings';
+    setCurrentScreen('database');
+  }
+
+  function handleOpenSettings() {
+    setCurrentScreen('settings');
+  }
+
+  function handleOpenProfile() {
+    subNavigatorReturnRef.current = 'menu';
+    prepareProfileDraftsForEdit();
+    setCurrentScreen('profile');
+  }
+
+  function handleOpenProfileFromMore() {
+    subNavigatorReturnRef.current = 'settings';
+    prepareProfileDraftsForEdit();
+    setCurrentScreen('profile');
+  }
+
+  function handleOpenMoreGoals() {
+    subNavigatorReturnRef.current = 'settings';
+    setProfileGoalDraft(
+      profileGoalWeightLb != null ? String(Math.round(profileGoalWeightLb * 100) / 100) : '',
+    );
+    setCurrentScreen('moreGoals');
+  }
+
+  function handleOpenStreakSubscreen() {
+    subNavigatorReturnRef.current = 'settings';
+    setCurrentScreen('streak');
+  }
+
+  function handleOpenAppearance() {
+    subNavigatorReturnRef.current = 'settings';
+    setCurrentScreen('appearance');
+  }
+
+  function handleOpenMuscleMapFromMore() {
+    setCurrentScreen('muscles');
+  }
+
+  async function handleSaveProfile() {
+    const cleanName = profileNameDraft.trim();
+
+    function parseOptionalPositive(draft, label) {
+      const t = draft.trim();
+      if (!t) return { ok: true, value: null };
+      const n = Number.parseFloat(t);
+      if (Number.isNaN(n) || n <= 0) {
+        return { ok: false, message: `${label} must be a positive number, or leave the field blank.` };
+      }
+      return { ok: true, value: n };
+    }
+
+    const parsedHeightIn = profileHeightPickersToInches(
+      profileHeightPickFeet,
+      profileHeightPickInches,
+    );
+    const goalRes = parseOptionalPositive(profileGoalDraft, 'Goal weight');
+    if (!goalRes.ok) {
+      Alert.alert('Check goal weight', goalRes.message);
+      return;
+    }
+
+    const body = {
+      heightIn: parsedHeightIn,
+      weightLb: null,
+      goalWeightLb: goalRes.value,
+    };
+
+    try {
+      await AsyncStorage.setItem(PROFILE_NAME_STORAGE_KEY, cleanName);
+      await AsyncStorage.setItem(PROFILE_BODY_STORAGE_KEY, JSON.stringify(body));
+      setProfileName(cleanName);
+      setProfileHeightIn(parsedHeightIn);
+      setProfileGoalWeightLb(goalRes.value);
+      {
+        const hp = inchesToProfileHeightPickers(parsedHeightIn);
+        setProfileHeightPickFeet(hp.feet);
+        setProfileHeightPickInches(hp.inches);
+      }
+      setProfileGoalDraft(goalRes.value != null ? String(Math.round(goalRes.value * 100) / 100) : '');
+      setProfileHeightEditorOpen(false);
+      Alert.alert('Saved', 'Your profile was updated.');
+      handleReturnFromSubscreen();
+    } catch (error) {
+      console.warn('Failed to save profile', error);
+      Alert.alert('Save Failed', 'Could not save your profile this time.');
+    }
+  }
+
+  async function handleSaveGoalsOnly() {
+    const trimmed = profileGoalDraft.trim();
+    let goalVal = null;
+    if (trimmed) {
+      const n = Number.parseFloat(trimmed);
+      if (Number.isNaN(n) || n <= 0) {
+        Alert.alert('Check goal weight', 'Enter a positive number, or leave the field blank to clear your goal.');
+        return;
+      }
+      goalVal = n;
+    }
+    try {
+      const savedBodyRaw = await AsyncStorage.getItem(PROFILE_BODY_STORAGE_KEY);
+      let body = {
+        heightIn: profileHeightIn,
+        weightLb: null,
+        goalWeightLb: goalVal,
+      };
+      if (savedBodyRaw) {
+        const parsed = JSON.parse(savedBodyRaw);
+        const parsedHeight =
+          typeof parsed.heightIn === 'number' && !Number.isNaN(parsed.heightIn)
+            ? parsed.heightIn
+            : null;
+        body = {
+          heightIn: parsedHeight ?? profileHeightIn ?? null,
+          weightLb: parsed.weightLb ?? null,
+          goalWeightLb: goalVal,
+        };
+      }
+      await AsyncStorage.setItem(PROFILE_BODY_STORAGE_KEY, JSON.stringify(body));
+      setProfileGoalWeightLb(goalVal);
+      setProfileGoalDraft(goalVal != null ? String(Math.round(goalVal * 100) / 100) : '');
+      Alert.alert('Saved', 'Your goal weight was updated.');
+      handleReturnFromSubscreen();
+    } catch (error) {
+      console.warn('Failed to save goal weight', error);
+      Alert.alert('Save failed', 'Could not save your goal this time.');
+    }
+  }
+
+  function getTodayDateInputValue() {
+    const now = new Date();
+    const yyyy = String(now.getFullYear());
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  function openWeightLogModal() {
+    const now = new Date();
+    setWeightLogDraftValue('');
+    setWeightLogDraftDate(getTodayDateInputValue());
+    setWeightDatePickYear(now.getFullYear());
+    setWeightDatePickMonth(now.getMonth() + 1);
+    setWeightDatePickDay(now.getDate());
+    setHistoryWeightPanelTab('graph');
+    setIsWeightLogModalVisible(true);
+  }
+
+  function parseDateInputOrToday(text) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text || '')) {
+      const parsed = new Date(`${text}T12:00:00`);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+    return new Date();
+  }
+
+  function openWeightDatePicker() {
+    Keyboard.dismiss();
+    const parsed = parseDateInputOrToday(weightLogDraftDate);
+    setWeightDatePickYear(parsed.getFullYear());
+    setWeightDatePickMonth(parsed.getMonth() + 1);
+    setWeightDatePickDay(parsed.getDate());
+    setIsWeightDatePickerVisible(true);
+  }
+
+  function applyWeightDatePickerSelection() {
+    const maxDay = getDaysInMonth(weightDatePickYear, weightDatePickMonth - 1);
+    const clampedDay = Math.max(1, Math.min(maxDay, weightDatePickDay));
+    const yyyy = String(weightDatePickYear);
+    const mm = String(weightDatePickMonth).padStart(2, '0');
+    const dd = String(clampedDay).padStart(2, '0');
+    setWeightLogDraftDate(`${yyyy}-${mm}-${dd}`);
+    setWeightDatePickDay(clampedDay);
+    setIsWeightDatePickerVisible(false);
+  }
+
+  function saveWeightLogEntry() {
+    const valueText = weightLogDraftValue.trim();
+    if (!valueText) {
+      Alert.alert('Missing weight', 'Enter your body weight before saving.');
+      return;
+    }
+    const parsedWeight = Number.parseFloat(valueText);
+    if (Number.isNaN(parsedWeight) || parsedWeight <= 0) {
+      Alert.alert('Invalid weight', 'Weight must be a positive number.');
+      return;
+    }
+
+    const dateText = weightLogDraftDate.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateText)) {
+      Alert.alert('Invalid date', 'Use date format YYYY-MM-DD.');
+      return;
+    }
+    const parsedDate = new Date(`${dateText}T12:00:00`);
+    if (Number.isNaN(parsedDate.getTime())) {
+      Alert.alert('Invalid date', 'Please enter a real calendar date.');
+      return;
+    }
+    const today = new Date();
+    const todayKeyDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const pickedKeyDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate());
+    if (pickedKeyDate.getTime() > todayKeyDate.getTime()) {
+      Alert.alert('Future date not allowed', 'Please choose today or an earlier date.');
+      return;
+    }
+
+    setWeightLogs((previousLogs) => [
+      ...previousLogs,
+      {
+        id: `${Date.now()}`,
+        dateISO: parsedDate.toISOString(),
+        weightLb: parsedWeight,
+      },
+    ]);
+    setIsWeightLogModalVisible(false);
+  }
+
+  function handleDeleteWeightLogEntry(weightLogId) {
+    Alert.alert('Delete entry?', 'Remove this weight entry?', [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          setWeightLogs((previousLogs) => previousLogs.filter((entry) => entry.id !== weightLogId));
+        },
+      },
+    ]);
+  }
+
+  function resetCurrentWorkoutFields() {
+    setElapsedSeconds(0);
+    setSelectedMovement('');
+    setCustomMovementName('');
+    setUseCustomMovement(false);
+    setExerciseSearchQuery('');
+    setSetsByMovement({});
+    resetNotepadInput();
+    cancelEditingStoredSet();
+  }
+
+  function handleCancelWorkout() {
+    const hasAnyLoggedSets = Object.values(setsByMovement).some(
+      (movementSets) => Array.isArray(movementSets) && movementSets.length > 0,
+    );
+    if (!hasAnyLoggedSets) {
+      resetCurrentWorkoutFields();
+      setCurrentScreen('menu');
+      return;
+    }
+    Alert.alert('Cancel Workout?', 'This workout will not be saved to history.', [
+      { text: 'Keep Workout', style: 'cancel' },
+      {
+        text: 'Cancel Workout',
+        style: 'destructive',
+        onPress: () => {
+          resetCurrentWorkoutFields();
+          setCurrentScreen('menu');
+        },
+      },
+    ]);
+  }
+
+  function handleDeleteWorkout(workoutId) {
+    Alert.alert('Delete Workout?', 'Remove this workout from history?', [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          setWorkoutHistory((previousHistory) =>
+            previousHistory.filter((workoutItem) => workoutItem.id !== workoutId),
+          );
+        },
+      },
+    ]);
+  }
+
+  function startEditingStoredSet(movement, setIndex, setItem) {
+    setEditingSetKey(`${movement}::${setIndex}`);
+    setEditingReps(String(setItem.reps));
+    setEditingWeight(String(setItem.weight));
+  }
+
+  function cancelEditingStoredSet() {
+    setEditingSetKey(null);
+    setEditingReps('0');
+    setEditingWeight('0');
+  }
+
+  function saveEditingStoredSet(movement, setIndex) {
+    const safeReps = Math.max(0, Number.parseInt(editingReps || '0', 10) || 0);
+    const safeWeight = getSafeWeightValue(editingWeight);
+
+    setSetsByMovement((previousValue) => {
+      const movementSets = previousValue[movement] || [];
+      const updatedSets = movementSets.map((setItem, index) => {
+        if (index !== setIndex) return setItem;
+        return {
+          ...setItem,
+          reps: safeReps,
+          weight: safeWeight,
+        };
+      });
+
+      return {
+        ...previousValue,
+        [movement]: updatedSets,
+      };
+    });
+
+    cancelEditingStoredSet();
+  }
+
+  function deleteStoredSet(movement, setIndex) {
+    setSetsByMovement((previousValue) => {
+      const movementSets = previousValue[movement] || [];
+      const updatedSets = movementSets.filter((_, index) => index !== setIndex);
+
+      if (updatedSets.length === 0) {
+        const { [movement]: _removedMovement, ...restMovements } = previousValue;
+        return restMovements;
+      }
+
+      return {
+        ...previousValue,
+        [movement]: updatedSets,
+      };
+    });
+
+    if (editingSetKey === `${movement}::${setIndex}`) {
+      cancelEditingStoredSet();
+    }
+  }
+
+  const movementNames = useMemo(() => Object.keys(setsByMovement), [setsByMovement]);
+  /** Exercise cards: most recently logged set first so the current movement stays near the top. */
+  const movementNamesNewestFirst = useMemo(() => {
+    const names = Object.keys(setsByMovement);
+    return [...names].sort((a, b) => {
+      const setsA = setsByMovement[a] || [];
+      const setsB = setsByMovement[b] || [];
+      const maxA = setsA.length === 0 ? -1 : Math.max(...setsA.map((s) => Number(s.elapsedSeconds) || 0));
+      const maxB = setsB.length === 0 ? -1 : Math.max(...setsB.map((s) => Number(s.elapsedSeconds) || 0));
+      if (maxB !== maxA) return maxB - maxA;
+      return a.localeCompare(b);
+    });
+  }, [setsByMovement]);
+
+  const totalReps = useMemo(() => {
+    return movementNames.reduce((sum, movement) => {
+      const movementSets = setsByMovement[movement] || [];
+      const repsForMovement = movementSets.reduce((innerSum, setItem) => innerSum + setItem.reps, 0);
+      return sum + repsForMovement;
+    }, 0);
+  }, [movementNames, setsByMovement]);
+
+  /** Max activation per muscle (from exerciseMuscleMap); drives heat colors on workout pullout diagrams. */
+  const workoutMuscleHeatBySlug = useMemo(
+    () => aggregateWorkoutMuscleHeat(movementNames, exerciseLookup),
+    [exerciseLookup, movementNames],
+  );
+
+  const historySelectedDate = useMemo(
+    () => new Date(historySelectedYear, historySelectedMonth, 1),
+    [historySelectedYear, historySelectedMonth],
+  );
+
+  const shiftHistoryMonth = useCallback((delta) => {
+    const nextDate = new Date(historySelectedYear, historySelectedMonth + delta, 1);
+    setHistorySelectedMonth(nextDate.getMonth());
+    setHistorySelectedYear(nextDate.getFullYear());
+  }, [historySelectedMonth, historySelectedYear]);
+
+  const shiftHistoryYear = useCallback((delta) => {
+    setHistorySelectedYear((previousYear) => previousYear + delta);
+  }, []);
+
+  const historyFilteredWeightLogs = useMemo(() => {
+    const sorted = [...weightLogs].sort((a, b) => {
+      const ad = new Date(a.dateISO || '');
+      const bd = new Date(b.dateISO || '');
+      return ad.getTime() - bd.getTime();
+    });
+
+    return sorted.filter((logItem) => {
+      const d = new Date(logItem.dateISO || '');
+      if (Number.isNaN(d.getTime())) return false;
+      if (historyChartMode === 'year') {
+        return d.getFullYear() === historySelectedYear;
+      }
+      return d.getFullYear() === historySelectedYear && d.getMonth() === historySelectedMonth;
+    });
+  }, [weightLogs, historyChartMode, historySelectedYear, historySelectedMonth]);
+
+  const monthlyVolumeStats = useMemo(
+    () => buildMonthlyDailyVolume(workoutHistory, historySelectedDate),
+    [workoutHistory, historySelectedDate],
+  );
+  const yearlyVolumeStats = useMemo(
+    () => buildYearlyMonthlyVolume(workoutHistory, historySelectedYear),
+    [workoutHistory, historySelectedYear],
+  );
+  const workoutsThisMonthCount = useMemo(
+    () => countWorkoutsInMonth(workoutHistory, historySelectedDate),
+    [workoutHistory, historySelectedDate],
+  );
+  const totalLifetimeVolumeLb = useMemo(
+    () => workoutHistory.reduce((acc, w) => acc + getWorkoutVolumeLb(w), 0),
+    [workoutHistory],
+  );
+
+  const historyMonthLabel = useMemo(() => {
+    return historySelectedDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  }, [historySelectedDate]);
+  const historyYearLabel = useMemo(() => `${historySelectedYear}`, [historySelectedYear]);
+  const historyMonthXAxisLabels = useMemo(
+    () => monthlyVolumeStats.byDay.map((_, index) => `${index + 1}`),
+    [monthlyVolumeStats.byDay],
+  );
+  const weightDatePickerYearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 11 }, (_, index) => currentYear - 10 + index);
+  }, []);
+  const weightDatePickerMonthOptions = useMemo(() => {
+    const today = new Date();
+    const maxMonth = weightDatePickYear === today.getFullYear() ? today.getMonth() + 1 : 12;
+    return Array.from({ length: maxMonth }, (_, index) => index + 1);
+  }, [weightDatePickYear]);
+  const weightDatePickerDayOptions = useMemo(() => {
+    const today = new Date();
+    let dayCount = getDaysInMonth(weightDatePickYear, weightDatePickMonth - 1);
+    if (
+      weightDatePickYear === today.getFullYear() &&
+      weightDatePickMonth === today.getMonth() + 1
+    ) {
+      dayCount = Math.min(dayCount, today.getDate());
+    }
+    return Array.from({ length: dayCount }, (_, index) => index + 1);
+  }, [weightDatePickMonth, weightDatePickYear]);
+
+  useEffect(() => {
+    const today = new Date();
+    if (
+      weightDatePickYear === today.getFullYear() &&
+      weightDatePickMonth > today.getMonth() + 1
+    ) {
+      setWeightDatePickMonth(today.getMonth() + 1);
+      return;
+    }
+    const maxDay = getDaysInMonth(weightDatePickYear, weightDatePickMonth - 1);
+    const todayMaxDay =
+      weightDatePickYear === today.getFullYear() &&
+      weightDatePickMonth === today.getMonth() + 1
+        ? today.getDate()
+        : maxDay;
+    if (weightDatePickDay > todayMaxDay) setWeightDatePickDay(todayMaxDay);
+  }, [weightDatePickYear, weightDatePickMonth, weightDatePickDay]);
+
+  const historyYearXAxisLabels = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, monthIdx) =>
+        new Date(2026, monthIdx, 1).toLocaleDateString(undefined, { month: 'short' }),
+      ),
+    [],
+  );
+  const historyChartValues = historyChartMode === 'year' ? yearlyVolumeStats.byMonth : monthlyVolumeStats.byDay;
+  const historyChartMax = historyChartMode === 'year' ? yearlyVolumeStats.maxVolume : monthlyVolumeStats.maxVolume;
+  const historyWeightChartPoints = useMemo(
+    () =>
+      historyFilteredWeightLogs.map((logItem) => {
+        const d = new Date(logItem.dateISO || '');
+        const label = `${d.getMonth() + 1}/${d.getDate()}`;
+        return {
+          label,
+          value: Number(logItem.weightLb),
+        };
+      }),
+    [historyFilteredWeightLogs],
+  );
+
+  const weeklyStreakDays = useMemo(() => {
+    const labels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    const now = new Date();
+    const todayIdx = now.getDay();
+    const weekStart = new Date(now);
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(now.getDate() - todayIdx);
+
+    const dayKeysWithWorkout = new Set();
+    workoutHistory.forEach((workoutItem) => {
+      if (!workoutItem?.completedAt) return;
+      const d = new Date(workoutItem.completedAt);
+      if (Number.isNaN(d.getTime())) return;
+      dayKeysWithWorkout.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+    });
+
+    return labels.map((label, idx) => {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + idx);
+      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      const hasWorkout = dayKeysWithWorkout.has(key);
+      const isToday = idx === todayIdx;
+      return {
+        key: `${label}-${key}`,
+        label,
+        hasWorkout,
+        isToday,
+      };
+    });
+  }, [workoutHistory]);
+
+  const weeklyWorkoutsLoggedCount = useMemo(
+    () => weeklyStreakDays.filter((dayItem) => dayItem.hasWorkout).length,
+    [weeklyStreakDays],
+  );
+
+  const menuDateLabel = useMemo(
+    () =>
+      new Date().toLocaleDateString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      }),
+    [],
+  );
+
+  const historyBodyGoalsSummary = useMemo(() => {
+    const hasAny = profileHeightIn != null || profileGoalWeightLb != null;
+    return { hasAny };
+  }, [profileHeightIn, profileGoalWeightLb]);
+
+  function renderWorkoutStoredSets() {
+    const wt = WORKOUT_THEME;
+    return movementNamesNewestFirst.length === 0 ? (
+      <Text style={[styles.emptyText, { color: wt.textMuted }]}>No sets saved yet.</Text>
+    ) : (
+      movementNamesNewestFirst.map((movement) => {
+        const movementSets = setsByMovement[movement] || [];
+        return (
+          <View
+            key={movement}
+            style={[
+              styles.movementCard,
+              {
+                backgroundColor: wt.innerCardBg,
+                borderWidth: 1,
+                borderColor: wt.cardBorder,
+              },
+            ]}>
+            <Text style={[styles.movementTitle, { color: wt.textPrimary }]}>{movement}</Text>
+            {movementSets.map((setItem, index) => {
+              const hideWeightWhileEditing =
+                isBodyweightOnlyExercise(movement, exerciseLookup) && Number(setItem.weight) === 0;
+              return (
+              <View key={`${movement}-${index}`} style={styles.storedSetRow}>
+                <Text style={[styles.setText, { color: wt.textSecondary }]}>
+                  {formatWorkoutSetSummaryText(movement, setItem, exerciseLookup)}
+                </Text>
+                <View style={styles.storedSetActions}>
+                  <TouchableOpacity
+                    style={[styles.smallActionButton, { backgroundColor: wt.secondaryButtonBg }]}
+                    onPress={() => startEditingStoredSet(movement, index, setItem)}>
+                    <Text style={[styles.smallActionButtonText, { color: wt.secondaryButtonText }]}>Edit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.smallActionButton, styles.smallDeleteButton]}
+                    onPress={() => deleteStoredSet(movement, index)}>
+                    <Text style={styles.smallDeleteButtonText}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {editingSetKey === `${movement}::${index}` ? (
+                  <View style={[styles.editSetPanel, { borderColor: wt.inputBorder }]}>
+                    <TextInput
+                      value={editingReps}
+                      onChangeText={setEditingReps}
+                      keyboardType="number-pad"
+                      placeholder="Reps"
+                      placeholderTextColor={wt.placeholderText}
+                      style={[
+                        styles.editSetInput,
+                        {
+                          backgroundColor: wt.inputBg,
+                          color: wt.inputText,
+                          borderColor: wt.inputBorder,
+                        },
+                      ]}
+                    />
+                    {hideWeightWhileEditing ? null : (
+                      <TextInput
+                        value={editingWeight}
+                        onChangeText={setEditingWeight}
+                        keyboardType="decimal-pad"
+                        placeholder="Weight"
+                        placeholderTextColor={wt.placeholderText}
+                        style={[
+                          styles.editSetInput,
+                          {
+                            backgroundColor: wt.inputBg,
+                            color: wt.inputText,
+                            borderColor: wt.inputBorder,
+                          },
+                        ]}
+                      />
+                    )}
+                    <View style={styles.editSetActions}>
+                      <TouchableOpacity
+                        style={[styles.smallActionButton, { backgroundColor: wt.primaryButtonBg }]}
+                        onPress={() => saveEditingStoredSet(movement, index)}>
+                        <Text style={[styles.smallActionButtonText, { color: wt.primaryButtonText }]}>Save</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.smallActionButton, { backgroundColor: wt.secondaryButtonBg }]}
+                        onPress={cancelEditingStoredSet}>
+                        <Text style={[styles.smallActionButtonText, { color: wt.secondaryButtonText }]}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+              );
+            })}
+          </View>
+        );
+      })
+    );
+  }
+
+  function getExercisesForMuscle(muscleName) {
+    const primaryExercises = [];
+    const secondaryExercises = [];
+
+    EXERCISE_DATABASE.forEach((exerciseItem) => {
+      if (exerciseItem.primaryMuscles.includes(muscleName)) {
+        primaryExercises.push(exerciseItem.name);
+      } else if (exerciseItem.secondaryMuscles.includes(muscleName)) {
+        secondaryExercises.push(exerciseItem.name);
+      }
+    });
+
+    primaryExercises.sort((a, b) => a.localeCompare(b));
+    secondaryExercises.sort((a, b) => a.localeCompare(b));
+
+    return { primaryExercises, secondaryExercises };
+  }
+
+  function handleOpenMusclePopup(muscleName) {
+    setSelectedMuscleName(muscleName);
+    setIsMuscleModalVisible(true);
+  }
+
+  function handleCloseMuscleModal() {
+    setIsMuscleModalVisible(false);
+  }
+
+  function handleSwitchMuscleViewSide(nextSide) {
+    if (nextSide === muscleViewSide) return;
+    if (isMuscleSideTransitioningRef.current) return;
+
+    isMuscleSideTransitioningRef.current = true;
+    muscleDiagramOpacity.stopAnimation();
+
+    Animated.timing(muscleDiagramOpacity, {
+      toValue: 0,
+      duration: 140,
+      useNativeDriver: true,
+    }).start(() => {
+      setMuscleViewSide(nextSide);
+      requestAnimationFrame(() => {
+        Animated.timing(muscleDiagramOpacity, {
+          toValue: 1,
+          duration: 180,
+          useNativeDriver: true,
+        }).start(() => {
+          isMuscleSideTransitioningRef.current = false;
+        });
+      });
+    });
+  }
+
+  function renderDiagramWithZones(diagramSource, zonesArray) {
+    return (
+      <Animated.View style={[styles.muscleDiagramWrap, { opacity: muscleDiagramOpacity }]}>
+        <Image source={diagramSource} style={styles.muscleDiagramImage} />
+        {zonesArray.map((zoneItem) => (
+          <TouchableOpacity
+            key={zoneItem.id}
+            style={[
+              styles.muscleZoneButton,
+              {
+                top: zoneItem.y,
+                left: zoneItem.x,
+              },
+            ]}
+            onPress={() => handleOpenMusclePopup(zoneItem.muscle)}
+            accessibilityRole="button"
+            accessibilityLabel={`Show exercises for ${zoneItem.muscle}`}
+            hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
+          />
+        ))}
+      </Animated.View>
+    );
+  }
+
+  const notepadExerciseSelected = activeMovementName.length > 0;
+  const selectedMuscleExercises = useMemo(
+    () => getExercisesForMuscle(selectedMuscleName),
+    [selectedMuscleName],
+  );
+
+  /** Workout screen only — uses {@link WORKOUT_THEME} menu-style colors */
+  function renderExerciseSection() {
+    const wt = WORKOUT_THEME;
+    const exercisesForCards = exerciseSearchQuery.trim() ? filteredExerciseNames : sampleMovements;
+
+    return (
+      <View style={styles.inputSection}>
+        <Text style={[styles.label, { color: wt.textPrimary }]}>Exercise</Text>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.exerciseScrollContent}
+          style={styles.exerciseHorizontalScroll}>
+          <TouchableOpacity
+            style={[
+              styles.exerciseCard,
+              { backgroundColor: wt.inputBg, borderColor: wt.inputBorder },
+              useCustomMovement && styles.exerciseCardSelectedWorkout,
+            ]}
+            onPress={handleSelectCustomMovement}>
+            <View style={[styles.exerciseCardTop, { backgroundColor: wt.exerciseCardTop }]} />
+            <Text
+              style={[styles.exerciseCardLabel, { color: wt.inputText }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.6}>
+              Custom
+            </Text>
+          </TouchableOpacity>
+
+          {exercisesForCards.map((movement) => (
+            <TouchableOpacity
+              key={movement}
+              style={[
+                styles.exerciseCard,
+                { backgroundColor: wt.inputBg, borderColor: wt.inputBorder },
+                !useCustomMovement && selectedMovement === movement && styles.exerciseCardSelectedWorkout,
+              ]}
+              onPress={() => handleSelectMovement(movement)}>
+              <View style={[styles.exerciseCardTop, { backgroundColor: wt.exerciseCardTop }]} />
+              <Text
+                style={[styles.exerciseCardLabel, { color: wt.inputText }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}>
+                {movement}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <View ref={exerciseSearchRowRef} collapsable={false}>
+          <View
+            style={[
+              styles.exerciseSearchRow,
+              { backgroundColor: wt.inputBg, borderColor: wt.inputBorder },
+            ]}>
+            <TextInput
+              value={exerciseSearchQuery}
+              onChangeText={setExerciseSearchQuery}
+              placeholder="Search exercises…"
+              placeholderTextColor={wt.placeholderText}
+              autoCapitalize="words"
+              autoCorrect={false}
+              returnKeyType="search"
+              onFocus={() => {
+                exerciseSearchFocusedRef.current = true;
+                const frame = lastKeyboardFrameRef.current;
+                if (frame) {
+                  setTimeout(
+                    () => scrollExerciseSearchAboveKeyboard(frame),
+                    Platform.OS === 'android' ? 120 : 50,
+                  );
+                }
+              }}
+              onBlur={() => {
+                exerciseSearchFocusedRef.current = false;
+              }}
+              style={[styles.exerciseSearchField, { color: wt.inputText }]}
+            />
+            {exerciseSearchQuery.length > 0 ? (
+              <TouchableOpacity
+                style={styles.exerciseSearchClearButton}
+                onPress={() => setExerciseSearchQuery('')}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search">
+                <Text style={[styles.exerciseSearchClearText, { color: wt.textSecondary }]}>✕</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+
+        {useCustomMovement ? (
+          <TextInput
+            value={customMovementName}
+            onChangeText={setCustomMovementName}
+            placeholder="Type your exercise name"
+            placeholderTextColor={wt.placeholderText}
+            style={[styles.input, { backgroundColor: wt.inputBg, color: wt.inputText, borderColor: wt.inputBorder }]}
+          />
+        ) : null}
+      </View>
+    );
+  }
+
+  const usesMainTabsNav =
+    currentScreen === 'menu' ||
+    currentScreen === 'history' ||
+    currentScreen === 'settings' ||
+    currentScreen === 'database' ||
+    currentScreen === 'muscles';
+
+  if (usesMainTabsNav) {
+    const mainTabsSafeAreaStyle =
+      currentScreen === 'menu' || currentScreen === 'settings'
+        ? styles.menuScreenWithHeaderSafeArea
+        : [styles.safeArea, { backgroundColor: colors.screenBackground }];
+
+    return (
+      <MainTabsLayout
+        edges={['top', 'left', 'right']}
+        safeAreaStyle={mainTabsSafeAreaStyle}
+        screenTransitionOpacity={screenTransitionOpacity}
+        bottomBar={
+          <MainBottomTabBar
+            currentScreen={currentScreen}
+            bottomInset={insets.bottom}
+            onPressHome={handleReturnToMenu}
+            onPressHistory={handleOpenHistory}
+            onPressSettings={handleOpenSettings}
+            onPressMuscles={() => setCurrentScreen('muscles')}
+            onPressStartWorkout={handleStartNewWorkout}
+          />
+        }>
+        <View style={{ flex: 1 }}>
+          {currentScreen === 'menu' ? (
+            <MenuHomeTabScreen
+              mainTabBottomReserve={mainTabBottomReserve}
+              menuDateLabel={menuDateLabel}
+              profileName={profileName}
+              weeklyStreakDays={weeklyStreakDays}
+              onOpenProfile={handleOpenProfile}
+              onStartWorkout={handleStartNewWorkout}
+              onOpenHistory={handleOpenHistory}
+              onOpenDatabase={handleOpenDatabase}
+            />
+          ) : null}
+
+          {currentScreen === 'settings' ? (
+            <MoreHubTabScreen
+              moreHubScrollViewRef={moreHubScrollViewRef}
+              mainTabBottomReserve={mainTabBottomReserve}
+              handleMoreHubScroll={handleMoreHubScroll}
+              restoreMoreHubScrollPosition={restoreMoreHubScrollPosition}
+              handleOpenProfileFromMore={handleOpenProfileFromMore}
+              handleOpenMoreGoals={handleOpenMoreGoals}
+              handleOpenDatabaseFromMore={handleOpenDatabaseFromMore}
+              handleOpenMuscleMapFromMore={handleOpenMuscleMapFromMore}
+              handleOpenStreakSubscreen={handleOpenStreakSubscreen}
+              handleOpenHistoryFromMore={handleOpenHistoryFromMore}
+              handleOpenAppearance={handleOpenAppearance}
+            />
+          ) : null}
+
+          {currentScreen === 'history' ? (
+            <View style={styles.workoutScreenWrapper}>
+              <ScrollView
+                style={styles.mainTabsFullBleedScroll}
+                contentContainerStyle={[
+                  styles.historyScreenScroll,
+                  { paddingBottom: 28 + mainTabBottomReserve },
+                ]}>
+                <Text style={[styles.summaryTitle, { color: colors.textPrimary }]}>History</Text>
+                <Text style={[styles.historySubtitle, { color: colors.textSecondary }]}>
+                  Progress from saved workouts · update your targets in Profile
+                </Text>
+
+                <View style={[styles.historyStatCard, { backgroundColor: colors.cardBg, borderColor: colors.inputBorder }]}>
+                  <View style={styles.historyWeightHeaderRow}>
+                    <Text style={[styles.historyCardTitle, { color: colors.textPrimary, marginBottom: 0 }]}>
+                      Weight progress
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.historyAddWeightButton, { borderColor: colors.inputBorder }]}
+                      onPress={openWeightLogModal}
+                      accessibilityRole="button"
+                      accessibilityLabel="Add weight log">
+                      <Text style={[styles.historyAddWeightButtonText, { color: colors.textPrimary }]}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={[styles.historyWeightTabsRow, { borderColor: colors.inputBorder }]}>
+                    <TouchableOpacity
+                      style={[
+                        styles.historyWeightTabButton,
+                        historyWeightPanelTab === 'graph' && { backgroundColor: colors.primaryButton },
+                      ]}
+                      onPress={() => setHistoryWeightPanelTab('graph')}>
+                      <Text
+                        style={[
+                          styles.historyWeightTabText,
+                          { color: historyWeightPanelTab === 'graph' ? colors.primaryButtonText : colors.textPrimary },
+                        ]}>
+                        Graph
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.historyWeightTabButton,
+                        historyWeightPanelTab === 'entries' && { backgroundColor: colors.primaryButton },
+                      ]}
+                      onPress={() => setHistoryWeightPanelTab('entries')}>
+                      <Text
+                        style={[
+                          styles.historyWeightTabText,
+                          { color: historyWeightPanelTab === 'entries' ? colors.primaryButtonText : colors.textPrimary },
+                        ]}>
+                        Entries
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  {historyWeightPanelTab === 'graph' ? (
+                    <>
+                      <Text style={[styles.historyStatCaption, { color: colors.textSecondary, marginBottom: 6 }]}>
+                        Log your body weight over time. Date defaults to today when adding.
+                      </Text>
+                      <WeightProgressChart
+                        points={historyWeightChartPoints}
+                        lineColor={colors.primaryButton}
+                        axisColor={colors.inputBorder}
+                        textColor={colors.textSecondary}
+                        pointColor={colors.primaryButton}
+                      />
+                    </>
+                  ) : (
+                    <View style={styles.historyWeightEntriesWrap}>
+                      {historyFilteredWeightLogs.length === 0 ? (
+                        <Text style={[styles.setText, { color: colors.textSecondary }]}>
+                          No entries in this selected period.
+                        </Text>
+                      ) : (
+                        [...historyFilteredWeightLogs]
+                          .sort((a, b) => new Date(b.dateISO).getTime() - new Date(a.dateISO).getTime())
+                          .map((entry) => {
+                            const d = new Date(entry.dateISO);
+                            const dLabel = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+                            return (
+                              <View key={entry.id} style={styles.historyWeightEntryRow}>
+                                <View style={styles.historyWeightEntryTextBlock}>
+                                  <Text style={[styles.historyWeightEntryValue, { color: colors.textPrimary }]}>
+                                    {Math.round(Number(entry.weightLb) * 10) / 10} lb
+                                  </Text>
+                                  <Text style={[styles.historyWeightEntryDate, { color: colors.textSecondary }]}>
+                                    {dLabel}
+                                  </Text>
+                                </View>
+                                <TouchableOpacity
+                                  onPress={() => handleDeleteWeightLogEntry(entry.id)}
+                                  style={[styles.historyWeightEntryDeleteBtn, { borderColor: colors.inputBorder }]}>
+                                  <Text style={[styles.historyWeightEntryDeleteText, { color: colors.deleteText }]}>
+                                    Delete
+                                  </Text>
+                                </TouchableOpacity>
+                              </View>
+                            );
+                          })
+                      )}
+                    </View>
+                  )}
+                </View>
+
+                <View style={[styles.historyStatCard, { backgroundColor: colors.cardBg, borderColor: colors.inputBorder }]}>
+                  <Text style={[styles.historyCardTitle, { color: colors.textPrimary }]}>
+                    {historyChartMode === 'year' ? 'Total lifted by month' : 'Total lifted by day'}
+                  </Text>
+                  <View style={[styles.historyModeSwitch, { borderColor: colors.inputBorder }]}>
+                    <TouchableOpacity
+                      style={[
+                        styles.historyModeSwitchOption,
+                        historyChartMode === 'month' && { backgroundColor: colors.primaryButton },
+                      ]}
+                      onPress={() => setHistoryChartMode('month')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Show daily view">
+                      <Text
+                        style={[
+                          styles.historyModeSwitchText,
+                          { color: historyChartMode === 'month' ? colors.primaryButtonText : colors.textPrimary },
+                        ]}>
+                        Days in Month
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.historyModeSwitchOption,
+                        historyChartMode === 'year' && { backgroundColor: colors.primaryButton },
+                      ]}
+                      onPress={() => setHistoryChartMode('year')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Show monthly view">
+                      <Text
+                        style={[
+                          styles.historyModeSwitchText,
+                          { color: historyChartMode === 'year' ? colors.primaryButtonText : colors.textPrimary },
+                        ]}>
+                        Months in Year
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.historyPeriodControlsRow}>
+                    {historyChartMode === 'month' ? (
+                      <View style={[styles.historySwitchCard, { borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}>
+                        <Text style={[styles.historySwitchLabel, { color: colors.textSecondary }]}>Month</Text>
+                        <View style={styles.historySwitchControls}>
+                          <TouchableOpacity
+                            style={[styles.historySwitchButton, { borderColor: colors.inputBorder }]}
+                            onPress={() => shiftHistoryMonth(-1)}
+                            accessibilityRole="button"
+                            accessibilityLabel="Previous month">
+                            <Text style={[styles.historySwitchButtonText, { color: colors.textPrimary }]}>‹</Text>
+                          </TouchableOpacity>
+                          <Text style={[styles.historySwitchValue, { color: colors.textPrimary }]}>
+                            {historySelectedMonth + 1}
+                          </Text>
+                          <TouchableOpacity
+                            style={[styles.historySwitchButton, { borderColor: colors.inputBorder }]}
+                            onPress={() => shiftHistoryMonth(1)}
+                            accessibilityRole="button"
+                            accessibilityLabel="Next month">
+                            <Text style={[styles.historySwitchButtonText, { color: colors.textPrimary }]}>›</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : null}
+                    <View style={[styles.historySwitchCard, { borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}>
+                      <Text style={[styles.historySwitchLabel, { color: colors.textSecondary }]}>Year</Text>
+                      <View style={styles.historySwitchControls}>
+                        <TouchableOpacity
+                          style={[styles.historySwitchButton, { borderColor: colors.inputBorder }]}
+                          onPress={() => shiftHistoryYear(-1)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Previous year">
+                          <Text style={[styles.historySwitchButtonText, { color: colors.textPrimary }]}>‹</Text>
+                        </TouchableOpacity>
+                        <Text style={[styles.historySwitchValue, { color: colors.textPrimary }]}>{historySelectedYear}</Text>
+                        <TouchableOpacity
+                          style={[styles.historySwitchButton, { borderColor: colors.inputBorder }]}
+                          onPress={() => shiftHistoryYear(1)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Next year">
+                          <Text style={[styles.historySwitchButtonText, { color: colors.textPrimary }]}>›</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                  <Text style={[styles.historyStatCaption, { color: colors.textSecondary, marginBottom: 6 }]}>
+                    {historyChartMode === 'year'
+                      ? `${historyYearLabel} · x-axis = month, y-axis = total pounds lifted in that month`
+                      : `${historyMonthLabel} · x-axis = day of month, y-axis = total pounds lifted`}
+                  </Text>
+                  <MonthlyVolumeChart
+                    values={historyChartValues}
+                    xLabels={historyChartMode === 'year' ? historyYearXAxisLabels : historyMonthXAxisLabels}
+                    maxVolume={historyChartMax}
+                    accentColor={colors.primaryButton}
+                    axisColor={colors.inputBorder}
+                    captionColor={colors.textSecondary}
+                    barMutedColor={colors.secondaryButton}
+                    captionText={
+                      historyChartMode === 'year'
+                        ? 'Each bar is one month. Y-axis is pounds lifted in that month.'
+                        : 'Each bar is one day. Y-axis is pounds lifted on that day.'
+                    }
+                    peakLabelPrefix={historyChartMode === 'year' ? 'Highest month' : 'Highest day'}
+                  />
+                </View>
+
+                <View style={[styles.historyStatCard, { backgroundColor: colors.cardBg, borderColor: colors.inputBorder }]}>
+                  <Text style={[styles.historyCardTitle, { color: colors.textPrimary }]}>Training snapshot</Text>
+                  <Text style={[styles.historyStatLine, { color: colors.setText }]}>
+                    <Text style={[styles.historyStatEmphasis, { color: colors.textPrimary }]}>
+                      {workoutHistory.length}
+                    </Text>{' '}
+                    workouts logged (all time)
+                  </Text>
+                  <Text style={[styles.historyStatLine, { color: colors.setText }]}>
+                    <Text style={[styles.historyStatEmphasis, { color: colors.textPrimary }]}>
+                      {formatVolumeCompact(totalLifetimeVolumeLb)}
+                    </Text>{' '}
+                    lb lifted total · volume = weight × reps per set (same units as your workout log)
+                  </Text>
+                  <Text style={[styles.historyStatLine, { color: colors.setText }]}>
+                    In {historyMonthLabel}:{' '}
+                    <Text style={[styles.historyStatEmphasis, { color: colors.textPrimary }]}>
+                      {workoutsThisMonthCount}
+                    </Text>{' '}
+                    workouts,{' '}
+                    <Text style={[styles.historyStatEmphasis, { color: colors.textPrimary }]}>
+                      {formatVolumeCompact(monthlyVolumeStats.monthTotal)}
+                    </Text>{' '}
+                    lb lifted
+                  </Text>
+                </View>
+
+                <View style={[styles.historyStatCard, { backgroundColor: colors.cardBg, borderColor: colors.inputBorder }]}>
+                  <Text style={[styles.historyCardTitle, { color: colors.textPrimary }]}>Body & goals</Text>
+                  {!historyBodyGoalsSummary.hasAny ? (
+                    <Text style={[styles.setText, { color: colors.textSecondary }]}>
+                      Add height and goal weight under Profile — they show up here next time.
+                    </Text>
+                  ) : (
+                    <>
+                      {profileHeightIn != null ? (
+                        <Text style={[styles.historyStatLine, { color: colors.setText }]}>
+                          Height{' '}
+                          <Text style={[styles.historyStatEmphasis, { color: colors.textPrimary }]}>
+                            {formatHeightFeetInchesLabel(profileHeightIn)}
+                          </Text>
+                          {' '}
+                          <Text style={{ color: colors.textSecondary, fontWeight: '500' }}>
+                            ({Math.round(profileHeightIn)} in total)
+                          </Text>
+                        </Text>
+                      ) : (
+                        <Text style={[styles.setText, { color: colors.textSecondary }]}>Height not set · open Profile</Text>
+                      )}
+                      {profileGoalWeightLb != null ? (
+                        <Text style={[styles.historyStatLine, { color: colors.setText }]}>
+                          Goal weight{' '}
+                          <Text style={[styles.historyStatEmphasis, { color: colors.textPrimary }]}>
+                            {Math.round(profileGoalWeightLb * 100) / 100} lb
+                          </Text>
+                        </Text>
+                      ) : (
+                        <Text style={[styles.setText, { color: colors.textSecondary }]}>Goal weight not set</Text>
+                      )}
+                    </>
+                  )}
+                </View>
+
+                <Text style={[styles.historySectionHeading, { color: colors.textPrimary }]}>Past workouts</Text>
+
+                {workoutHistory.length === 0 ? (
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                    Finish a workout to see it listed here — your volume chart will fill in automatically.
+                  </Text>
+                ) : (
+                  workoutHistory.map((workoutItem, workoutIndex) => {
+                    const movementKeys = Object.keys(workoutItem.setsByMovement || {});
+                    const workoutVolume = getWorkoutVolumeLb(workoutItem);
+                    return (
+                      <View
+                        key={workoutItem.id || `${workoutIndex}`}
+                        style={[styles.movementCard, { backgroundColor: colors.cardBg }]}>
+                        <View style={styles.historyCardHeader}>
+                          <Text style={[styles.movementTitle, { color: colors.textPrimary }]}>
+                            Workout {workoutHistory.length - workoutIndex}
+                          </Text>
+                          <TouchableOpacity onPress={() => handleDeleteWorkout(workoutItem.id)}>
+                            <Text style={[styles.deleteText, { color: colors.deleteText }]}>Delete</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <Text style={[styles.setText, { color: colors.setText }]}>
+                          Finished: {new Date(workoutItem.completedAt).toLocaleString()}
+                        </Text>
+                        <Text style={[styles.setText, { color: colors.setText }]}>
+                          Total time: {formatTime(workoutItem.elapsedSeconds)} · Total reps: {workoutItem.totalReps} ·
+                          Volume: {formatVolumeCompact(workoutVolume)} lb
+                        </Text>
+
+                        {movementKeys.map((movement) => {
+                          const movementSets = workoutItem.setsByMovement[movement] || [];
+                          return (
+                            <View key={`${workoutItem.id}-${movement}`} style={styles.historyMovementBlock}>
+                              <Text style={[styles.historyMovementTitle, { color: colors.textPrimary }]}>{movement}</Text>
+                              {movementSets.map((setItem, setIndex) => (
+                                <Text
+                                  key={`${workoutItem.id}-${movement}-${setIndex}`}
+                                  style={[styles.setText, { color: colors.setText }]}>
+                                  {formatWorkoutSetSummaryText(movement, setItem, exerciseLookup)}
+                                </Text>
+                              ))}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    );
+                  })
+                )}
+              </ScrollView>
+              <TouchableOpacity
+                style={styles.workoutCloseButton}
+                onPress={handleReturnFromSubscreen}
+                accessibilityRole="button"
+                accessibilityLabel="Close history">
+                <Text style={[styles.workoutCloseButtonText, { color: colors.textPrimary }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {currentScreen === 'database' ? (
+            <View style={styles.workoutScreenWrapper}>
+              <ScrollView
+                style={styles.mainTabsFullBleedScroll}
+                contentContainerStyle={[styles.container, { paddingBottom: 32 + mainTabBottomReserve }]}>
+                <Text style={[styles.summaryTitle, { color: colors.textPrimary }]}>Exercise Database</Text>
+                <Text style={[styles.setText, { color: colors.textSecondary, marginBottom: 12 }]}>
+                  {EXERCISE_DATABASE.length} exercises
+                </Text>
+
+                {EXERCISE_DATABASE.map((exerciseItem) => (
+                  <View key={exerciseItem.name} style={[styles.movementCard, { backgroundColor: colors.cardBg, width: '100%' }]}>
+                    <Text style={[styles.movementTitle, { color: colors.textPrimary }]}>{exerciseItem.name}</Text>
+                    <Text style={[styles.setText, { color: colors.setText }]}>
+                      Primary: {exerciseItem.primaryMuscles.join(', ')}
+                    </Text>
+                    <Text style={[styles.setText, { color: colors.setText }]}>
+                      Secondary:{' '}
+                      {exerciseItem.secondaryMuscles.length > 0
+                        ? exerciseItem.secondaryMuscles.join(', ')
+                        : 'None listed'}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+              <TouchableOpacity
+                style={styles.workoutCloseButton}
+                onPress={handleReturnFromSubscreen}
+                accessibilityRole="button"
+                accessibilityLabel="Close exercise database">
+                <Text style={[styles.workoutCloseButtonText, { color: colors.textPrimary }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {currentScreen === 'muscles' ? (
+            <>
+              <ScrollView
+                style={styles.mainTabsFullBleedScroll}
+                contentContainerStyle={[styles.container, { paddingBottom: 32 + mainTabBottomReserve }]}>
+                <Text style={[styles.summaryTitle, { color: colors.textPrimary }]}>Muscle Map</Text>
+                <Text style={[styles.setText, { color: colors.textSecondary, marginBottom: 12 }]}>
+                  Tap a circle marker to see matching exercises.
+                </Text>
+
+                <View style={[styles.muscleSideToggleRow, { backgroundColor: colors.cardBg, borderColor: colors.inputBorder }]}>
+                  <TouchableOpacity
+                    style={[
+                      styles.muscleSideToggleButton,
+                      muscleViewSide === 'front' && { backgroundColor: colors.primaryButton },
+                    ]}
+                    onPress={() => handleSwitchMuscleViewSide('front')}>
+                    <Text
+                      style={[
+                        styles.muscleSideToggleText,
+                        { color: muscleViewSide === 'front' ? colors.primaryButtonText : colors.textPrimary },
+                      ]}>
+                      Front
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.muscleSideToggleButton,
+                      muscleViewSide === 'back' && { backgroundColor: colors.primaryButton },
+                    ]}
+                    onPress={() => handleSwitchMuscleViewSide('back')}>
+                    <Text
+                      style={[
+                        styles.muscleSideToggleText,
+                        { color: muscleViewSide === 'back' ? colors.primaryButtonText : colors.textPrimary },
+                      ]}>
+                      Back
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={[styles.muscleTabTitle, { color: colors.textPrimary }]}>
+                  {muscleViewSide === 'front' ? 'Front Diagram' : 'Back Diagram'}
+                </Text>
+                {renderDiagramWithZones(
+                  muscleViewSide === 'front'
+                    ? require('../assets/images/musclechartfront.png')
+                    : require('../assets/images/musclechartback.png'),
+                  muscleViewSide === 'front' ? FRONT_MUSCLE_ZONES : BACK_MUSCLE_ZONES,
+                )}
+              </ScrollView>
+
+              <Modal
+                transparent
+                animationType="fade"
+                visible={isMuscleModalVisible}
+                onRequestClose={handleCloseMuscleModal}>
+                <View style={styles.muscleModalBackdrop}>
+                  <TouchableOpacity style={styles.muscleModalBackdropTouch} onPress={handleCloseMuscleModal} />
+                  <View style={[styles.muscleModalCard, { backgroundColor: colors.cardBg, borderColor: colors.inputBorder }]}>
+                    <Text style={[styles.movementTitle, { color: colors.textPrimary }]}>{selectedMuscleName || 'Muscle'}</Text>
+                    <ScrollView style={styles.muscleModalScroll} contentContainerStyle={styles.muscleModalContent}>
+                      <Text style={[styles.muscleGroupLabel, { color: colors.textPrimary }]}>Primary</Text>
+                      {selectedMuscleExercises.primaryExercises.length > 0 ? (
+                        selectedMuscleExercises.primaryExercises.map((exerciseName) => (
+                          <Text key={`primary-${exerciseName}`} style={[styles.setText, { color: colors.setText }]}>
+                            - {exerciseName}
+                          </Text>
+                        ))
+                      ) : (
+                        <Text style={[styles.setText, { color: colors.textSecondary }]}>- None listed</Text>
+                      )}
+
+                      <Text style={[styles.muscleGroupLabel, { color: colors.textPrimary }]}>Secondary</Text>
+                      {selectedMuscleExercises.secondaryExercises.length > 0 ? (
+                        selectedMuscleExercises.secondaryExercises.map((exerciseName) => (
+                          <Text key={`secondary-${exerciseName}`} style={[styles.setText, { color: colors.setText }]}>
+                            - {exerciseName}
+                          </Text>
+                        ))
+                      ) : (
+                        <Text style={[styles.setText, { color: colors.textSecondary }]}>- None listed</Text>
+                      )}
+                    </ScrollView>
+                    <TouchableOpacity
+                      style={[styles.primaryButton, { backgroundColor: colors.primaryButton, marginBottom: 0 }]}
+                      onPress={handleCloseMuscleModal}>
+                      <Text style={[styles.primaryButtonText, { color: colors.primaryButtonText }]}>Close</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </Modal>
+            </>
+          ) : null}
+
+          <Modal
+            transparent
+            animationType="fade"
+            visible={isWeightLogModalVisible}
+            onRequestClose={() => setIsWeightLogModalVisible(false)}>
+            <View style={styles.workoutHelpModalBackdrop}>
+              <TouchableOpacity
+                style={styles.muscleModalBackdropTouch}
+                onPress={() => {
+                  setIsWeightDatePickerVisible(false);
+                  setIsWeightLogModalVisible(false);
+                }}
+              />
+              <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+                <View style={styles.weightLogModalContentWrap}>
+                  <View style={[styles.workoutHelpModalCard, { borderColor: colors.inputBorder, backgroundColor: colors.cardBg }]}>
+                    <Text style={[styles.workoutHelpModalTitle, { color: colors.textPrimary }]}>Add Weight Log</Text>
+                    <Text style={[styles.notepadHint, { color: colors.textSecondary }]}>
+                      Enter your body weight and a date in YYYY-MM-DD format. Date defaults to today.
+                    </Text>
+                    <TextInput
+                      value={weightLogDraftValue}
+                      onChangeText={setWeightLogDraftValue}
+                      placeholder="Weight (lb)"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="decimal-pad"
+                      inputMode="decimal"
+                      returnKeyType="done"
+                      onSubmitEditing={Keyboard.dismiss}
+                      style={[
+                        styles.profileInput,
+                        { marginBottom: 10, borderColor: colors.inputBorder, backgroundColor: colors.inputBg, color: colors.textPrimary },
+                      ]}
+                    />
+                    <TouchableOpacity
+                      style={[
+                        styles.weightDatePickerTrigger,
+                        { marginBottom: 10, borderColor: colors.inputBorder, backgroundColor: colors.inputBg },
+                      ]}
+                      onPress={openWeightDatePicker}
+                      accessibilityRole="button"
+                      accessibilityLabel="Change log date">
+                      <Text style={[styles.weightDatePickerTriggerLabel, { color: colors.textSecondary }]}>Date</Text>
+                      <Text style={[styles.weightDatePickerTriggerValue, { color: colors.textPrimary }]}>
+                        {weightLogDraftDate || getTodayDateInputValue()}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.menuPrimaryButton, styles.workoutHelpModalClose, { justifyContent: 'center', marginBottom: 8 }]}
+                      onPress={saveWeightLogEntry}>
+                      <Text style={styles.menuPrimaryButtonText}>Save weight</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.menuSecondaryButton, styles.workoutHelpModalClose, { justifyContent: 'center', marginBottom: 0 }]}
+                      onPress={() => {
+                        setIsWeightDatePickerVisible(false);
+                        setIsWeightLogModalVisible(false);
+                      }}>
+                      <Text style={styles.menuSecondaryButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {isWeightDatePickerVisible ? (
+                    <View style={styles.weightDateInlineOverlay}>
+                      <TouchableOpacity
+                        style={styles.weightDateBottomSheetBackdropTouch}
+                        onPress={() => setIsWeightDatePickerVisible(false)}
+                      />
+                      <View style={[styles.weightDateBottomSheetCard, { borderColor: colors.inputBorder, backgroundColor: colors.cardBg }]}>
+                        <Text style={[styles.weightDateBottomSheetTitle, { color: colors.textPrimary }]}>Pick Date</Text>
+                        <View style={styles.weightDatePickersRow}>
+                          <View style={styles.weightDatePickerColumn}>
+                            <Text style={[styles.weightDatePickerColumnLabel, { color: colors.textSecondary }]}>Month</Text>
+                            <Picker
+                              selectedValue={weightDatePickMonth}
+                              onValueChange={(value) => {
+                                const parsed = typeof value === 'number' ? value : Number.parseInt(String(value), 10);
+                                if (!Number.isNaN(parsed)) setWeightDatePickMonth(parsed);
+                              }}
+                              style={[styles.weightDatePickerWheel, { color: colors.textPrimary }]}
+                              itemStyle={[styles.weightDatePickerItem, { color: colors.textPrimary }]}>
+                              {weightDatePickerMonthOptions.map((monthNumber) => (
+                                <Picker.Item key={`weight-month-${monthNumber}`} label={`${monthNumber}`} value={monthNumber} />
+                              ))}
+                            </Picker>
+                          </View>
+                          <View style={styles.weightDatePickerColumn}>
+                            <Text style={[styles.weightDatePickerColumnLabel, { color: colors.textSecondary }]}>Day</Text>
+                            <Picker
+                              selectedValue={weightDatePickDay}
+                              onValueChange={(value) => {
+                                const parsed = typeof value === 'number' ? value : Number.parseInt(String(value), 10);
+                                if (!Number.isNaN(parsed)) setWeightDatePickDay(parsed);
+                              }}
+                              style={[styles.weightDatePickerWheel, { color: colors.textPrimary }]}
+                              itemStyle={[styles.weightDatePickerItem, { color: colors.textPrimary }]}>
+                              {weightDatePickerDayOptions.map((dayNumber) => (
+                                <Picker.Item key={`weight-day-${dayNumber}`} label={`${dayNumber}`} value={dayNumber} />
+                              ))}
+                            </Picker>
+                          </View>
+                          <View style={[styles.weightDatePickerColumn, styles.weightDatePickerYearColumn]}>
+                            <Text style={[styles.weightDatePickerColumnLabel, { color: colors.textSecondary }]}>Year</Text>
+                            <Picker
+                              selectedValue={weightDatePickYear}
+                              onValueChange={(value) => {
+                                const parsed = typeof value === 'number' ? value : Number.parseInt(String(value), 10);
+                                if (!Number.isNaN(parsed)) setWeightDatePickYear(parsed);
+                              }}
+                              style={[styles.weightDatePickerWheel, { color: colors.textPrimary }]}
+                              itemStyle={[styles.weightDatePickerItem, { color: colors.textPrimary }]}>
+                              {weightDatePickerYearOptions.map((yearNumber) => (
+                                <Picker.Item key={`weight-year-${yearNumber}`} label={`${yearNumber}`} value={yearNumber} />
+                              ))}
+                            </Picker>
+                          </View>
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.menuPrimaryButton, styles.workoutHelpModalClose, { justifyContent: 'center', marginBottom: 8 }]}
+                          onPress={() => {
+                            Keyboard.dismiss();
+                            applyWeightDatePickerSelection();
+                          }}>
+                          <Text style={styles.menuPrimaryButtonText}>Use this date</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.menuSecondaryButton, styles.workoutHelpModalClose, { justifyContent: 'center', marginBottom: 0 }]}
+                          onPress={() => {
+                            Keyboard.dismiss();
+                            setIsWeightDatePickerVisible(false);
+                          }}>
+                          <Text style={styles.menuSecondaryButtonText}>Cancel</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </Modal>
+        </View>
+      </MainTabsLayout>
+    );
+  }
+
+  if (currentScreen === 'streak') {
+    return (
+      <StreakScreen
+        screenTransitionOpacity={screenTransitionOpacity}
+        onBack={handleReturnFromSubscreen}
+        weeklyWorkoutsLoggedCount={weeklyWorkoutsLoggedCount}
+        weeklyStreakDays={weeklyStreakDays}
+      />
+    );
+  }
+
+  if (currentScreen === 'moreGoals') {
+    return (
+      <MoreGoalsScreen
+        screenTransitionOpacity={screenTransitionOpacity}
+        onBack={handleReturnFromSubscreen}
+        profileGoalDraft={profileGoalDraft}
+        setProfileGoalDraft={setProfileGoalDraft}
+        onSaveGoal={handleSaveGoalsOnly}
+      />
+    );
+  }
+
+  if (currentScreen === 'appearance') {
+    return (
+      <AppearanceScreen screenTransitionOpacity={screenTransitionOpacity} onBack={handleReturnFromSubscreen} />
+    );
+  }
+
+  if (currentScreen === 'profile') {
+    return (
+      <ProfileScreen
+        screenTransitionOpacity={screenTransitionOpacity}
+        onBack={handleReturnFromSubscreen}
+        profileNameDraft={profileNameDraft}
+        setProfileNameDraft={setProfileNameDraft}
+        profileHeightPickFeet={profileHeightPickFeet}
+        setProfileHeightPickFeet={setProfileHeightPickFeet}
+        profileHeightPickInches={profileHeightPickInches}
+        setProfileHeightPickInches={setProfileHeightPickInches}
+        profileHeightEditorOpen={profileHeightEditorOpen}
+        setProfileHeightEditorOpen={setProfileHeightEditorOpen}
+        profileGoalDraft={profileGoalDraft}
+        setProfileGoalDraft={setProfileGoalDraft}
+        onSaveProfile={handleSaveProfile}
+      />
+    );
+  }
+
+  // Summary screen after ending workout.
+  if (currentScreen === 'summary') {
+    return (
+      <SummaryScreen
+        colors={colors}
+        screenTransitionOpacity={screenTransitionOpacity}
+        elapsedSeconds={elapsedSeconds}
+        totalReps={totalReps}
+        movementNamesNewestFirst={movementNamesNewestFirst}
+        setsByMovement={setsByMovement}
+        exerciseLookup={exerciseLookup}
+        editingSetKey={editingSetKey}
+        editingReps={editingReps}
+        setEditingReps={setEditingReps}
+        editingWeight={editingWeight}
+        setEditingWeight={setEditingWeight}
+        startEditingStoredSet={startEditingStoredSet}
+        deleteStoredSet={deleteStoredSet}
+        saveEditingStoredSet={saveEditingStoredSet}
+        cancelEditingStoredSet={cancelEditingStoredSet}
+        onStartNewWorkout={handleStartNewWorkout}
+        onReturnToMenu={handleReturnToMenu}
+      />
+    );
+  }
+
+  const wt = WORKOUT_THEME;
+
+  return (
+    <SafeAreaView style={[styles.menuScreen, styles.workoutSafeAreaLift]}>
+      <Animated.View style={[styles.screenFadeContainer, { opacity: screenTransitionOpacity }]}>
+      <View style={styles.workoutScreenWrapper}>
+        <View style={[styles.menuGradientTopGlow, styles.workoutGlowTop]} pointerEvents="none" />
+        <View style={[styles.menuGradientBottomGlow, styles.workoutGlowBottom]} pointerEvents="none" />
+
+        <KeyboardAvoidingView
+          style={styles.workoutKeyboardAvoid}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 56 : 0}>
+          <ScrollView
+            ref={workoutScrollRef}
+            onScroll={(e) => {
+              workoutScrollYRef.current = e.nativeEvent.contentOffset.y;
+            }}
+            scrollEventThrottle={16}
+            contentContainerStyle={[styles.container, styles.workoutScrollContent]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag">
+            <Text style={[styles.timerLabel, { color: wt.textSecondary }]}>Workout Timer</Text>
+            <Text style={[styles.timerValue, { color: wt.textPrimary }]}>{formatTime(elapsedSeconds)}</Text>
+
+            <View style={styles.inputSection}>
+              <View style={styles.workoutNotepadTitleRow}>
+                <Text style={[styles.label, { color: wt.textPrimary, marginBottom: 0 }]}>Log set</Text>
+                <TouchableOpacity
+                  style={styles.workoutHelpIconButton}
+                  onPress={() => setWorkoutHelpModalVisible(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="How to log sets">
+                  <Text style={styles.workoutHelpIconText}>?</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={[styles.notepadOuter, { borderColor: wt.cardBorder, backgroundColor: wt.cardBg }]}>
+                <Text
+                  style={[styles.notepadExerciseTitle, { color: wt.textPrimary, borderBottomColor: wt.inputBorder }]}
+                  accessibilityRole="header">
+                  {activeMovementName || 'Choose an exercise below'}
+                </Text>
+
+                <View
+                  style={[
+                    styles.notepadTwinRow,
+                    {
+                      backgroundColor: wt.inputBg,
+                      borderColor: wt.inputBorder,
+                      opacity: notepadExerciseSelected ? 1 : 0.45,
+                    },
+                  ]}>
+                  {activeIsBodyweightOnly ? (
+                    <TextInput
+                      ref={notepadRepsRef}
+                      value={notepadRepsInput}
+                      onChangeText={handleNotepadRepsChange}
+                      onSubmitEditing={() => commitNotepadSet()}
+                      editable={notepadExerciseSelected}
+                      placeholder="reps"
+                      placeholderTextColor={wt.placeholderText}
+                      keyboardType="default"
+                      inputMode="numeric"
+                      returnKeyType="done"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      selectTextOnFocus
+                      style={[styles.notepadTwinField, { flex: 1, color: wt.inputText }]}
+                    />
+                  ) : (
+                    <>
+                      <TextInput
+                        ref={notepadWeightInputRef}
+                        value={notepadWeightInput}
+                        onChangeText={handleNotepadWeightChange}
+                        onSubmitEditing={focusNotepadRepsField}
+                        editable={notepadExerciseSelected}
+                        placeholder="weight"
+                        placeholderTextColor={wt.placeholderText}
+                        keyboardType="default"
+                        inputMode="decimal"
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        selectTextOnFocus
+                        style={[styles.notepadTwinField, styles.notepadTwinFieldWeight, { color: wt.inputText }]}
+                      />
+                      <Text style={[styles.notepadTwinFor, { color: wt.textSecondary }]}>for</Text>
+                      <TextInput
+                        ref={notepadRepsRef}
+                        value={notepadRepsInput}
+                        onChangeText={handleNotepadRepsChange}
+                        onSubmitEditing={() => commitNotepadSet()}
+                        editable={notepadExerciseSelected}
+                        placeholder="reps"
+                        placeholderTextColor={wt.placeholderText}
+                        keyboardType="default"
+                        inputMode="numeric"
+                        returnKeyType="done"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        selectTextOnFocus
+                        style={[styles.notepadTwinField, { color: wt.inputText }]}
+                      />
+                    </>
+                  )}
+                </View>
+
+                <Text style={[styles.notepadSectionLabel, { color: wt.textMuted }]}>Stored sets (this workout)</Text>
+                <ScrollView
+                  style={styles.notepadStoredScroll}
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled">
+                  {renderWorkoutStoredSets()}
+                </ScrollView>
+              </View>
+            </View>
+
+            {renderExerciseSection()}
+
+            <TouchableOpacity
+              style={[styles.menuSecondaryButton, styles.workoutWideButton]}
+              onPress={handleNextMovement}>
+              <Text style={styles.menuSecondaryButtonText}>Next Movement</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.workoutEndButton, { backgroundColor: wt.destructive }]}
+              onPress={handleEndWorkout}>
+              <Text style={styles.endButtonText}>End Workout</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+
+        <Modal
+          transparent
+          animationType="fade"
+          visible={workoutHelpModalVisible}
+          onRequestClose={() => setWorkoutHelpModalVisible(false)}>
+          <View style={styles.workoutHelpModalBackdrop}>
+            <TouchableOpacity style={styles.muscleModalBackdropTouch} onPress={() => setWorkoutHelpModalVisible(false)} />
+            <View style={[styles.workoutHelpModalCard, { borderColor: wt.cardBorder, backgroundColor: wt.cardBg }]}>
+              <Text style={[styles.workoutHelpModalTitle, { color: wt.textPrimary }]}>Logging sets</Text>
+              <Text style={[styles.notepadHint, { color: wt.textSecondary }]}>
+                For most exercises: type weight (decimals are ok), then reps. Press{' '}
+                <Text style={{ fontWeight: '700', color: wt.textPrimary }}>Space</Text> or{' '}
+                <Text style={{ fontWeight: '700', color: wt.textPrimary }}>Next</Text> to jump to reps, then{' '}
+                <Text style={{ fontWeight: '700', color: wt.textPrimary }}>Enter</Text> or Done to save. Pull-ups,
+                push-ups, sit-ups, and similar bodyweight moves only need reps.
+              </Text>
+              <TouchableOpacity
+                style={[styles.menuPrimaryButton, styles.workoutHelpModalClose, { justifyContent: 'center' }]}
+                onPress={() => setWorkoutHelpModalVisible(false)}>
+                <Text style={styles.menuPrimaryButtonText}>Got it</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        <TouchableOpacity
+          style={styles.workoutCloseButtonMenu}
+          onPress={handleCancelWorkout}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel workout">
+          <Text style={[styles.workoutCloseButtonText, { color: '#4B3CC1' }]}>✕</Text>
+        </TouchableOpacity>
+
+        <View style={styles.musclePulloutRow}>
+          <TouchableOpacity
+            style={[styles.musclePulloutHandle, { backgroundColor: wt.primaryButtonBg }]}
+            onPress={toggleWorkoutMusclePullout}
+            accessibilityRole="button"
+            accessibilityLabel={isMuscleTabOpen ? 'Close muscles panel' : 'Open muscles panel'}>
+            <View style={[styles.musclePulloutHandleGrip, { backgroundColor: wt.primaryButtonText }]} />
+          </TouchableOpacity>
+          <Animated.View
+            style={[
+              styles.musclePulloutDrawer,
+              {
+                width: musclePulloutWidthAnim,
+                backgroundColor: wt.cardBg,
+                borderColor: wt.cardBorder,
+              },
+            ]}>
+            {isMuscleTabOpen ? (
+              <ScrollView style={styles.muscleTabContent} contentContainerStyle={styles.muscleTabContentContainer}>
+                <Text style={[styles.muscleTabTitle, { color: wt.textPrimary }]}>Front</Text>
+                <View style={styles.musclePulloutDiagramWrap}>
+                  <FrontMuscleDiagramSvg
+                    activationBySlug={workoutMuscleHeatBySlug}
+                    height={MUSCLE_PULLOUT_DIAGRAM_HEIGHT}
+                  />
+                </View>
+                <Text style={[styles.muscleTabTitle, { color: wt.textPrimary }]}>Back</Text>
+                <View style={styles.musclePulloutDiagramWrap}>
+                  <BackMuscleDiagramSvg
+                    activationBySlug={workoutMuscleHeatBySlug}
+                    height={MUSCLE_PULLOUT_DIAGRAM_HEIGHT}
+                  />
+                </View>
+              </ScrollView>
+            ) : null}
+          </Animated.View>
+        </View>
+      </View>
+      </Animated.View>
+    </SafeAreaView>
+  );
+}
+
