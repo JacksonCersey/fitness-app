@@ -1,9 +1,7 @@
-import { StyleSheet } from 'react-native';
-import menuLayoutProfileStyles from './menuLayoutProfileStyles';
-import formsHistoryMuscleStyles from './formsHistoryMuscleStyles';
+import { GAME_THEME_LIGHT } from '../theme/gameTheme';
+import { createThemedStyles } from './createThemedStyles';
 
-export const styles = Object.assign(
-  {},
-  StyleSheet.create(menuLayoutProfileStyles),
-  StyleSheet.create(formsHistoryMuscleStyles),
-);
+/** Static fallback for unmigrated imports — always light candy theme. */
+export const styles = createThemedStyles(GAME_THEME_LIGHT);
+
+export { createThemedStyles };

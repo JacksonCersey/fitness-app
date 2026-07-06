@@ -1,20 +1,18 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Image, Text, TouchableOpacity, View } from 'react-native';
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { useGameTheme, useStyles } from '../../app/context/ThemeStylesContext';
+import { Animated, Easing, Image, Text, TouchableOpacity, View } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { MAIN_NAV_TRACK_HEIGHT } from '../../constants/layout';
-import { styles } from '../../styles';
+import { MAIN_NAV_TAB_COUNT, MAIN_NAV_TRACK_HEIGHT, MAIN_SCREEN_TO_NAV_TAB } from '../../constants/layout';
 
-function getActiveMainNavTabKey(currentScreen) {
-  if (currentScreen === 'menu') return 'home';
-  if (currentScreen === 'history') return 'history';
-  if (currentScreen === 'settings') return 'settings';
-  if (currentScreen === 'muscles') return 'muscles';
-  return null;
-}
+const NAV_TAB_ORDER = ['home', 'history', 'muscles', 'settings'];
+
+/** Keeps pill geometry across brief unmounts so the indicator does not wait on layout. */
+const indicatorGeometryCache = { left: 0, width: 0 };
 
 /** Horizontal ⋯ icon for the More tab (matches active / inactive nav colors). */
-function MenuNavMoreDotsIcon({ active }) {
-  const dotColor = active ? '#4B3CC1' : '#FFFFFF';
+function MenuNavMoreDotsIcon({ active, theme }) {
+  const styles = useStyles();
+  const dotColor = active ? theme.navAccent : theme.navIconInactive;
   return (
     <View style={styles.menuNavMoreDotsIcon} accessibilityElementsHidden>
       <View style={[styles.menuNavMoreDot, { backgroundColor: dotColor }]} />
@@ -24,7 +22,15 @@ function MenuNavMoreDotsIcon({ active }) {
   );
 }
 
-export default function MainBottomTabBar({
+function getActiveMainNavTabKey(currentScreen) {
+  return MAIN_SCREEN_TO_NAV_TAB[currentScreen] ?? null;
+}
+
+function getNavIconTint(active, theme) {
+  return active ? theme.navAccent : theme.navIconInactive;
+}
+
+function MainBottomTabBar({
   currentScreen,
   bottomInset,
   onPressHome,
@@ -33,152 +39,126 @@ export default function MainBottomTabBar({
   onPressMuscles,
   onPressStartWorkout,
 }) {
+  const styles = useStyles();
+  const theme = useGameTheme();
+  const blurTint = theme.isLight ? 'light' : 'dark';
   const mainNavIndicatorX = useRef(new Animated.Value(0)).current;
-  const mainNavIndicatorW = useRef(new Animated.Value(1)).current;
-  const mainNavIndicatorOpacity = useRef(new Animated.Value(1)).current;
   const mainNavTrackInnerRef = useRef(null);
-  const mainNavSlotHomeRef = useRef(null);
-  const mainNavSlotHistoryRef = useRef(null);
-  const mainNavSlotSettingsRef = useRef(null);
-  const mainNavSlotMusclesRef = useRef(null);
+  const mainNavTabsRowRef = useRef(null);
+  const [indicatorGeometry, setIndicatorGeometry] = useState(() => ({ ...indicatorGeometryCache }));
 
-  function mainNavSlotRefFor(tabKey) {
-    if (tabKey === 'home') return mainNavSlotHomeRef;
-    if (tabKey === 'history') return mainNavSlotHistoryRef;
-    if (tabKey === 'settings') return mainNavSlotSettingsRef;
-    if (tabKey === 'muscles') return mainNavSlotMusclesRef;
-    return null;
-  }
+  const activeTab = getActiveMainNavTabKey(currentScreen);
+  const activeIndex = activeTab ? NAV_TAB_ORDER.indexOf(activeTab) : -1;
+  const slotWidth = indicatorGeometry.width;
 
-  function runMainNavIndicatorMeasureFor(tabKey) {
+  const moveIndicatorToIndex = useCallback(
+    (index, animated) => {
+      if (index < 0 || slotWidth <= 0) return;
+      const toValue = index * slotWidth;
+      mainNavIndicatorX.stopAnimation();
+      if (animated) {
+        Animated.timing(mainNavIndicatorX, {
+          toValue,
+          duration: 160,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start();
+      } else {
+        mainNavIndicatorX.setValue(toValue);
+      }
+    },
+    [mainNavIndicatorX, slotWidth],
+  );
+
+  const syncIndicatorGeometry = useCallback(() => {
     const inner = mainNavTrackInnerRef.current;
-    const slotRef = mainNavSlotRefFor(tabKey);
-    const slot = slotRef?.current;
-    if (!inner || !slot) return;
-    slot.measureLayout(
+    const tabsRow = mainNavTabsRowRef.current;
+    if (!inner || !tabsRow) return;
+
+    tabsRow.measureLayout(
       inner,
       (relativeX, _relativeY, measuredWidth) => {
-        const w = Math.max(0, measuredWidth);
-        Animated.parallel([
-          Animated.spring(mainNavIndicatorX, {
-            toValue: relativeX,
-            friction: 8,
-            tension: 72,
-            useNativeDriver: false,
-          }),
-          Animated.spring(mainNavIndicatorW, {
-            toValue: w,
-            friction: 8,
-            tension: 72,
-            useNativeDriver: false,
-          }),
-          Animated.spring(mainNavIndicatorOpacity, {
-            toValue: 1,
-            friction: 8,
-            tension: 72,
-            useNativeDriver: false,
-          }),
-        ]).start();
+        const nextSlotWidth = measuredWidth / MAIN_NAV_TAB_COUNT;
+        if (nextSlotWidth <= 0) return;
+        const nextGeometry = { left: relativeX, width: nextSlotWidth };
+        indicatorGeometryCache.left = relativeX;
+        indicatorGeometryCache.width = nextSlotWidth;
+        setIndicatorGeometry(nextGeometry);
+        const index = activeTab ? NAV_TAB_ORDER.indexOf(activeTab) : -1;
+        if (index >= 0) {
+          mainNavIndicatorX.setValue(index * nextSlotWidth);
+        }
       },
       () => {},
     );
-  }
-
-  function hideMainNavTabIndicator() {
-    Animated.parallel([
-      Animated.spring(mainNavIndicatorW, {
-        toValue: 0,
-        friction: 9,
-        tension: 80,
-        useNativeDriver: false,
-      }),
-      Animated.spring(mainNavIndicatorOpacity, {
-        toValue: 0,
-        friction: 9,
-        tension: 80,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  }
-
-  function syncMainNavIndicatorIfSlotActive(slotKey) {
-    requestAnimationFrame(() => {
-      const active = getActiveMainNavTabKey(currentScreen);
-      if (!active || slotKey !== active) return;
-      runMainNavIndicatorMeasureFor(active);
-    });
-  }
-
-  function syncMainNavIndicatorForCurrentScreen() {
-    requestAnimationFrame(() => {
-      const active = getActiveMainNavTabKey(currentScreen);
-      if (!active) {
-        hideMainNavTabIndicator();
-        return;
-      }
-      runMainNavIndicatorMeasureFor(active);
-    });
-  }
+  }, [activeTab, mainNavIndicatorX]);
 
   useEffect(() => {
-    const onTabsWithBottomNav =
-      currentScreen === 'menu' ||
-      currentScreen === 'history' ||
-      currentScreen === 'settings' ||
-      currentScreen === 'muscles';
-    if (!onTabsWithBottomNav) return undefined;
+    if (activeIndex >= 0 && slotWidth > 0) {
+      moveIndicatorToIndex(activeIndex, true);
+    }
+  }, [activeIndex, slotWidth, moveIndicatorToIndex]);
 
-    const id = requestAnimationFrame(() =>
-      requestAnimationFrame(() => syncMainNavIndicatorForCurrentScreen()),
-    );
-    return () => cancelAnimationFrame(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- match original: only re-sync when route changes; measure uses latest refs
-  }, [currentScreen]);
+  const handleTabPress = useCallback(
+    (tabKey, onPress) => {
+      const targetScreen = { home: 'menu', history: 'history', muscles: 'muscles', settings: 'settings' }[tabKey];
+      if (targetScreen === currentScreen) return;
+      const index = NAV_TAB_ORDER.indexOf(tabKey);
+      if (index >= 0) {
+        moveIndicatorToIndex(index, true);
+      }
+      onPress();
+    },
+    [currentScreen, moveIndicatorToIndex],
+  );
 
-  const activeTab = getActiveMainNavTabKey(currentScreen);
   const navBottomPad = 12 + bottomInset;
 
   return (
     <View style={[styles.menuBottomNav, { paddingBottom: navBottomPad }]} pointerEvents="box-none">
       <View style={styles.menuBottomNavRow}>
         <View style={styles.menuNavTrack}>
-          <BlurView intensity={40} tint="light" style={styles.menuNavTrackBlur} />
+          <BlurView intensity={40} tint={blurTint} style={styles.menuNavTrackBlur} />
           <View style={styles.menuNavTrackScrim} pointerEvents="none" />
           <View
             ref={mainNavTrackInnerRef}
             style={styles.menuNavTrackInner}
             collapsable={false}
-            onLayout={() => requestAnimationFrame(() => syncMainNavIndicatorForCurrentScreen())}>
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.menuNavTabIndicator,
-                {
-                  top: 0,
-                  height: MAIN_NAV_TRACK_HEIGHT,
-                  width: mainNavIndicatorW,
-                  opacity: mainNavIndicatorOpacity,
-                  transform: [{ translateX: mainNavIndicatorX }],
-                },
-              ]}>
-              <BlurView intensity={58} tint="light" style={styles.menuNavTabIndicatorBlur} />
-              <View style={styles.menuNavTabIndicatorScrim} pointerEvents="none" />
-            </Animated.View>
-            <View style={styles.menuNavTabsRow}>
+            onLayout={syncIndicatorGeometry}>
+            {slotWidth > 0 ? (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.menuNavTabIndicator,
+                  {
+                    top: 0,
+                    left: indicatorGeometry.left,
+                    height: MAIN_NAV_TRACK_HEIGHT,
+                    width: slotWidth,
+                    transform: [{ translateX: mainNavIndicatorX }],
+                  },
+                ]}>
+                <BlurView intensity={58} tint={blurTint} style={styles.menuNavTabIndicatorBlur} />
+                <View style={styles.menuNavTabIndicatorScrim} pointerEvents="none" />
+              </Animated.View>
+            ) : null}
+            <View
+              ref={mainNavTabsRowRef}
+              style={styles.menuNavTabsRow}
+              collapsable={false}
+              onLayout={syncIndicatorGeometry}>
               <TouchableOpacity
-                ref={mainNavSlotHomeRef}
-                collapsable={false}
                 style={styles.menuNavTabTouchable}
-                onPress={onPressHome}
+                onPress={() => handleTabPress('home', onPressHome)}
                 accessibilityRole="button"
-                accessibilityLabel="Home"
-                onLayout={() => syncMainNavIndicatorIfSlotActive('home')}>
+                accessibilityLabel="Home">
                 <View style={styles.menuNavSlotAnchor}>
                   <Image
                     source={require('../../../assets/images/houseicon.png')}
                     style={[
                       styles.menuNavGearIcon,
                       activeTab === 'home' ? styles.menuNavIconActive : styles.menuNavIconInactive,
+                      { tintColor: getNavIconTint(activeTab === 'home', theme) },
                     ]}
                     fadeDuration={0}
                   />
@@ -192,19 +172,17 @@ export default function MainBottomTabBar({
                 </View>
               </TouchableOpacity>
               <TouchableOpacity
-                ref={mainNavSlotHistoryRef}
-                collapsable={false}
                 style={styles.menuNavTabTouchable}
-                onPress={onPressHistory}
+                onPress={() => handleTabPress('history', onPressHistory)}
                 accessibilityRole="button"
-                accessibilityLabel="History"
-                onLayout={() => syncMainNavIndicatorIfSlotActive('history')}>
+                accessibilityLabel="History">
                 <View style={styles.menuNavSlotAnchor}>
                   <Image
-                    source={require('../../../assets/images/charticon.png')}
+                    source={require('../../../assets/images/progressicon.png')}
                     style={[
                       styles.menuNavGearIcon,
                       activeTab === 'history' ? styles.menuNavIconActive : styles.menuNavIconInactive,
+                      { tintColor: getNavIconTint(activeTab === 'history', theme) },
                     ]}
                     fadeDuration={0}
                   />
@@ -218,19 +196,17 @@ export default function MainBottomTabBar({
                 </View>
               </TouchableOpacity>
               <TouchableOpacity
-                ref={mainNavSlotMusclesRef}
-                collapsable={false}
                 style={styles.menuNavTabTouchable}
-                onPress={onPressMuscles}
+                onPress={() => handleTabPress('muscles', onPressMuscles)}
                 accessibilityRole="button"
-                accessibilityLabel="Targets tab"
-                onLayout={() => syncMainNavIndicatorIfSlotActive('muscles')}>
+                accessibilityLabel="Targets tab">
                 <View style={styles.menuNavSlotAnchor}>
                   <Image
                     source={require('../../../assets/images/targetlogo.png')}
                     style={[
                       styles.menuNavTargetIcon,
                       activeTab === 'muscles' ? styles.menuNavIconActive : styles.menuNavIconInactive,
+                      { tintColor: getNavIconTint(activeTab === 'muscles', theme) },
                     ]}
                     fadeDuration={0}
                   />
@@ -244,15 +220,12 @@ export default function MainBottomTabBar({
                 </View>
               </TouchableOpacity>
               <TouchableOpacity
-                ref={mainNavSlotSettingsRef}
-                collapsable={false}
                 style={styles.menuNavTabTouchable}
-                onPress={onPressSettings}
+                onPress={() => handleTabPress('settings', onPressSettings)}
                 accessibilityRole="button"
-                accessibilityLabel="More"
-                onLayout={() => syncMainNavIndicatorIfSlotActive('settings')}>
+                accessibilityLabel="More">
                 <View style={styles.menuNavSlotAnchor}>
-                  <MenuNavMoreDotsIcon active={activeTab === 'settings'} />
+                  <MenuNavMoreDotsIcon active={activeTab === 'settings'} theme={theme} />
                   <Text
                     style={[
                       styles.menuNavTabLabel,
@@ -265,7 +238,7 @@ export default function MainBottomTabBar({
             </View>
           </View>
         </View>
-        <View style={styles.menuNavFabWrap}>
+        <View style={styles.menuNavFabWrap} pointerEvents="box-none">
           <TouchableOpacity
             style={styles.menuNavFab}
             onPress={onPressStartWorkout}
@@ -278,3 +251,5 @@ export default function MainBottomTabBar({
     </View>
   );
 }
+
+export default memo(MainBottomTabBar);

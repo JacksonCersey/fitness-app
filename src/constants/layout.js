@@ -21,8 +21,53 @@ export const MUSCLE_PULLOUT_DRAWER_WIDTH = 220;
 /** Fade-in duration when navigating between screens (ms) */
 export const SCREEN_TRANSITION_MS = 200;
 
-/** Bottom-tab root screens — instant switch (no opacity fade) to avoid background flash. */
+/** Fade-out duration when switching bottom tabs (ms) */
+export const MAIN_TAB_FADE_OUT_MS = 280;
+
+/** More hub slide-in duration when opening a subscreen (ms) */
+export const MORE_HUB_SLIDE_MS = 220;
+
+/** More hub slide-out duration when closing back to More (ms) */
+export const MORE_HUB_SLIDE_CLOSE_MS = 120;
+
+/** Bottom nav fade when opening/closing a More hub subscreen (ms) */
+export const MORE_HUB_NAV_BAR_FADE_MS = 120;
+
+/** Subscreens opened from the More tab (no bottom nav) — slide in from the right. */
+export const MORE_HUB_SUBSCREEN_KEYS = new Set([
+  'profile',
+  'moreGoals',
+  'streak',
+  'appearance',
+  'strengthMovements',
+  'splitPlanner',
+]);
+
+/** True when `screenKey` is a More-stack screen returning to the More tab. */
+export function shouldUseMoreHubSlideTransition(screenKey, returnTabKey = 'settings') {
+  if (returnTabKey !== 'settings') return false;
+  return MORE_HUB_SUBSCREEN_KEYS.has(screenKey);
+}
+
+/** More subscreen is sliding over the More tab (keep More visible underneath). */
+export function isMoreHubSlideOverlay(screenKey, returnTabKey = 'settings') {
+  if (MAIN_TAB_SCREEN_KEYS.has(screenKey)) return false;
+  return shouldUseMoreHubSlideTransition(screenKey, returnTabKey);
+}
+
+/** Bottom-tab root screens — cross-fade handled in MainTabsRoot. */
 export const MAIN_TAB_SCREEN_KEYS = new Set(['menu', 'history', 'settings', 'muscles']);
 
-/** Shell background for all main-tab screens (matches menu body). */
-export const MAIN_TAB_SHELL_BG = '#1A1A1C';
+/** Number of slots in the bottom tab track (Home, Progress, Targets, More). */
+export const MAIN_NAV_TAB_COUNT = 4;
+
+/** Maps main-tab screen keys to bottom-nav tab keys. */
+export const MAIN_SCREEN_TO_NAV_TAB = {
+  menu: 'home',
+  history: 'history',
+  muscles: 'muscles',
+  settings: 'settings',
+};
+
+/** @deprecated Use useGameTheme().screenBg — kept for legacy static references. */
+export const MAIN_TAB_SHELL_BG = '#FFF5FB';
