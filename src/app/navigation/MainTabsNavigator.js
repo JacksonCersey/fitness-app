@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useRef } from 'react';
 import { useGameTheme, useStyles, useWorkoutTheme } from '../context/ThemeStylesContext';
 import { Animated, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -306,6 +306,7 @@ function MainTabsNavigator({ workoutStartRef }) {
   const mainTabsContentShellBackgroundColor =
     tabScreen === 'muscles' ? workoutTheme.screenBg : gameTheme.screenBg;
   const mainTabsBottomFadeHeight = Math.min(200, Math.round(mainTabBottomReserve + 48));
+  const mainTabTransitionLockRef = useRef(false);
 
   const onPressStartWorkout = useMemo(
     () => () => {
@@ -329,6 +330,7 @@ function MainTabsNavigator({ workoutStartRef }) {
             <MainBottomTabBar
               currentScreen={tabScreen}
               bottomInset={insets.bottom}
+              mainTabTransitionLockRef={mainTabTransitionLockRef}
               onPressHome={handleReturnToMenu}
               onPressHistory={handleOpenHistory}
               onPressSettings={handleOpenSettings}
@@ -340,6 +342,7 @@ function MainTabsNavigator({ workoutStartRef }) {
       >
         <MainTabsRoot
           activeScreen={tabScreen}
+          mainTabTransitionLockRef={mainTabTransitionLockRef}
           menu={mainTabsMenuProps}
           settings={mainTabsSettingsProps}
           history={mainTabsHistoryProps}

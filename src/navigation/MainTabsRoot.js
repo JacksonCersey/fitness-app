@@ -38,7 +38,7 @@ function MainTabPanel({ screenKey, activeScreen, outgoingScreen, panelOpacity, c
  * Keeps all bottom-tab screens mounted so switching tabs does not rebuild heavy trees.
  * Tab switches fade the outgoing screen out over the incoming screen underneath.
  */
-function MainTabsRoot({ activeScreen, menu, settings, history, muscles, weightLog }) {
+function MainTabsRoot({ activeScreen, mainTabTransitionLockRef, menu, settings, history, muscles, weightLog }) {
   const panelOpacitiesRef = useRef(null);
   if (!panelOpacitiesRef.current) {
     panelOpacitiesRef.current = createPanelOpacities(activeScreen);
@@ -88,6 +88,10 @@ function MainTabsRoot({ activeScreen, menu, settings, history, muscles, weightLo
     const outgoingOpacity = panelOpacities[leaving];
     if (!outgoingOpacity) return undefined;
 
+    if (mainTabTransitionLockRef) {
+      mainTabTransitionLockRef.current = true;
+    }
+
     const animation = Animated.timing(outgoingOpacity, {
       toValue: 0,
       duration: MAIN_TAB_FADE_OUT_MS,
@@ -97,13 +101,16 @@ function MainTabsRoot({ activeScreen, menu, settings, history, muscles, weightLo
 
     animation.start(({ finished }) => {
       if (!finished || animationGenerationRef.current !== generation) return;
+      if (mainTabTransitionLockRef) {
+        mainTabTransitionLockRef.current = false;
+      }
       setOutgoingScreen((current) => (current === leaving ? null : current));
     });
 
     return () => {
       animation.stop();
     };
-  }, [outgoingScreen, activeScreen, panelOpacities]);
+  }, [outgoingScreen, activeScreen, mainTabTransitionLockRef, panelOpacities]);
 
   return (
     <View style={styles.stack} pointerEvents="box-none">

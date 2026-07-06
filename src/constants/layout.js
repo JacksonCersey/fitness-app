@@ -19,10 +19,10 @@ export const MUSCLE_TAB_PANEL_MAX_HEIGHT =
 /** Width of the workout muscle diagrams strip when pulled open */
 export const MUSCLE_PULLOUT_DRAWER_WIDTH = 220;
 /** Fade-in duration when navigating between screens (ms) */
-export const SCREEN_TRANSITION_MS = 200;
+export const SCREEN_TRANSITION_MS = 140;
 
 /** Fade-out duration when switching bottom tabs (ms) */
-export const MAIN_TAB_FADE_OUT_MS = 280;
+export const MAIN_TAB_FADE_OUT_MS = 180;
 
 /** More hub slide-in duration when opening a subscreen (ms) */
 export const MORE_HUB_SLIDE_MS = 220;

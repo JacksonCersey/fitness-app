@@ -33,6 +33,7 @@ function getNavIconTint(active, theme) {
 function MainBottomTabBar({
   currentScreen,
   bottomInset,
+  mainTabTransitionLockRef,
   onPressHome,
   onPressHistory,
   onPressSettings,
@@ -102,6 +103,7 @@ function MainBottomTabBar({
   const handleTabPress = useCallback(
     (tabKey, onPress) => {
       const targetScreen = { home: 'menu', history: 'history', muscles: 'muscles', settings: 'settings' }[tabKey];
+      if (mainTabTransitionLockRef?.current) return;
       if (targetScreen === currentScreen) return;
       const index = NAV_TAB_ORDER.indexOf(tabKey);
       if (index >= 0) {
@@ -109,7 +111,7 @@ function MainBottomTabBar({
       }
       onPress();
     },
-    [currentScreen, moveIndicatorToIndex],
+    [currentScreen, mainTabTransitionLockRef, moveIndicatorToIndex],
   );
 
   const navBottomPad = 12 + bottomInset;
