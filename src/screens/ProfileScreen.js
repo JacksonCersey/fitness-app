@@ -1,27 +1,42 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
+import { useGameTheme, useStyles } from '../app/context/ThemeStylesContext';
 import {
   Animated,
+  Image,
   Platform,
   SafeAreaView,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import ProfileGoalWeightInput from '../components/profile/ProfileGoalWeightInput';
+import ProfileNameInput from '../components/profile/ProfileNameInput';
+import ProfileStatsSummary from '../components/profile/ProfileStatsSummary';
+import { getStreakRankProgress } from '../data/streakRanks';
 import {
+  bmiLbIn,
   formatHeightFeetInchesLabel,
   profileHeightPickersToInches,
   PROFILE_HEIGHT_FT_OPTIONS_MAX,
   PROFILE_HEIGHT_FT_OPTIONS_MIN,
   PROFILE_HEIGHT_FT_SENTINEL,
 } from '../../utils/workoutStats';
-import { styles } from '../styles';
+
+function getLatestLoggedWeightLb(weightLogs) {
+  if (!Array.isArray(weightLogs) || weightLogs.length === 0) return null;
+  const sorted = [...weightLogs]
+    .filter((log) => log?.dateISO && !Number.isNaN(new Date(log.dateISO).getTime()))
+    .sort((a, b) => new Date(b.dateISO).getTime() - new Date(a.dateISO).getTime());
+  const weightLb = Number(sorted[0]?.weightLb);
+  return !Number.isNaN(weightLb) && weightLb > 0 ? weightLb : null;
+}
 
 function ProfileScreen({
   screenTransitionOpacity,
   onBack,
+  profileName,
   profileNameDraft,
   setProfileNameDraft,
   profileHeightPickFeet,
@@ -33,7 +48,51 @@ function ProfileScreen({
   profileGoalDraft,
   setProfileGoalDraft,
   onSaveProfile,
+  workoutHistory,
+  weightLogs,
+  consecutiveTrainingWeekStreak,
 }) {
+  const styles = useStyles();
+  const theme = useGameTheme();
+
+  const displayName = useMemo(() => {
+    const draft = profileNameDraft.trim();
+    if (draft) return draft;
+    const saved = profileName.trim();
+    if (saved) return saved;
+    return 'Your profile';
+  }, [profileNameDraft, profileName]);
+
+  const rankSubtitle = useMemo(() => {
+    const rank = getStreakRankProgress(consecutiveTrainingWeekStreak);
+    const rankLabel = rank.displayRank.label;
+    const streakLabel = `${rank.streakWeeks} week${rank.streakWeeks === 1 ? '' : 's'} streak`;
+    return `${rankLabel} · ${streakLabel}`;
+  }, [consecutiveTrainingWeekStreak]);
+
+  const statsSummary = useMemo(() => {
+    const workoutsLogged = Array.isArray(workoutHistory) ? workoutHistory.length : 0;
+    const streakWeeks = consecutiveTrainingWeekStreak ?? 0;
+    const latestWeightLb = getLatestLoggedWeightLb(weightLogs);
+    const latestWeightLabel =
+      latestWeightLb != null ? `${Math.round(latestWeightLb * 10) / 10} lb` : 'Not logged';
+
+    const heightIn = profileHeightPickersToInches(profileHeightPickFeet, profileHeightPickInches);
+    const bmi =
+      latestWeightLb != null && heightIn != null && heightIn > 0
+        ? bmiLbIn(latestWeightLb, heightIn)
+        : null;
+    const bmiLabel = bmi != null ? bmi.toFixed(1) : '—';
+
+    return { workoutsLogged, streakWeeks, latestWeightLabel, bmiLabel };
+  }, [
+    workoutHistory,
+    consecutiveTrainingWeekStreak,
+    weightLogs,
+    profileHeightPickFeet,
+    profileHeightPickInches,
+  ]);
+
   return (
     <SafeAreaView style={styles.menuScreen}>
       <Animated.View style={[styles.screenFadeContainer, { opacity: screenTransitionOpacity }]}>
@@ -50,24 +109,44 @@ function ProfileScreen({
               onPress={onBack}
               accessibilityRole="button"
               accessibilityLabel="Go back">
-              <Text style={[styles.workoutCloseButtonText, { color: '#4B3CC1' }]}>✕</Text>
+              <Text style={[styles.workoutCloseButtonText, { color: theme.navBack }]}>✕</Text>
             </TouchableOpacity>
-            <Text style={styles.profileTitle}>Profile</Text>
+            <Text style={styles.menuSubscreenNavTitle}>Profile</Text>
           </View>
 
-          <View style={styles.profileCard}>
-            <Text style={styles.profileLabel}>Your name</Text>
-            <TextInput
-              value={profileNameDraft}
-              onChangeText={setProfileNameDraft}
-              placeholder="Optional"
-              placeholderTextColor="rgba(238, 241, 255, 0.5)"
-              style={styles.profileInput}
-              autoCapitalize="words"
-              returnKeyType="done"
-            />
+          <View style={styles.profileHeroRow}>
+            <View style={styles.profileHeroIconWell}>
+              <Image
+                source={require('../../assets/images/profileicon.png')}
+                style={styles.profileHeroIcon}
+                resizeMode="contain"
+              />
+            </View>
+            <View style={styles.profileHeroTextCol}>
+              <Text style={styles.profileHeroName} numberOfLines={2}>
+                {displayName}
+              </Text>
+              <Text style={styles.profileHeroSubtitle} numberOfLines={1}>
+                {rankSubtitle}
+              </Text>
+            </View>
           </View>
 
+          <Text style={[styles.menuMoreBodyText, { marginBottom: 16 }]}>
+            Your name, height, and goal weight feed into History and Progress. Update them here anytime.
+          </Text>
+
+          <ProfileStatsSummary
+            workoutsLogged={statsSummary.workoutsLogged}
+            streakWeeks={statsSummary.streakWeeks}
+            latestWeightLabel={statsSummary.latestWeightLabel}
+            bmiLabel={statsSummary.bmiLabel}
+          />
+
+          <Text style={styles.menuMoreSectionHeading}>About you</Text>
+          <ProfileNameInput value={profileNameDraft} onChangeText={setProfileNameDraft} placeholder="Optional" />
+
+          <Text style={styles.menuMoreSectionHeading}>Body</Text>
           <View style={styles.profileCard}>
             <Text style={styles.profileLabel}>Height</Text>
             <View style={styles.heightSummaryRow}>
@@ -154,19 +233,11 @@ function ProfileScreen({
             ) : null}
           </View>
 
-          <View style={styles.profileCard}>
-            <Text style={styles.profileLabel}>Goal weight (lb)</Text>
-            <TextInput
-              value={profileGoalDraft}
-              onChangeText={setProfileGoalDraft}
-              placeholder="Target body weight"
-              placeholderTextColor="rgba(238, 241, 255, 0.5)"
-              style={styles.profileInput}
-              keyboardType="decimal-pad"
-              inputMode="decimal"
-            />
-            <Text style={styles.profileHint}>Shown on History as your target body weight.</Text>
-          </View>
+          <ProfileGoalWeightInput
+            value={profileGoalDraft}
+            onChangeText={setProfileGoalDraft}
+            hint="Shown on History as your target body weight."
+          />
 
           <TouchableOpacity style={styles.profileSaveButton} onPress={onSaveProfile}>
             <Text style={styles.profileSaveButtonText}>Save profile</Text>

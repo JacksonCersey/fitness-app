@@ -1,24 +1,10 @@
 import React, { memo } from 'react';
+import { useGameTheme, useStyles } from '../app/context/ThemeStylesContext';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import PastWorkoutsMonthCalendar from '../../components/PastWorkoutsMonthCalendar';
 import MonthlyVolumeChart from '../../components/MonthlyVolumeChart';
 import WeightProgressChart from '../../components/WeightProgressChart';
 import StrengthScoreCard from '../components/StrengthScoreCard';
-import { styles } from '../styles';
-
-/** Purple-forward palette aligned with Home / More (`menuTopBar`, link rows). */
-const HC = {
-  textPrimary: '#EEF1FF',
-  textSecondary: 'rgba(238, 241, 255, 0.72)',
-  textMuted: 'rgba(238, 241, 255, 0.45)',
-  cardBg: 'rgba(93, 85, 216, 0.72)',
-  cardBorder: 'rgba(255, 255, 255, 0.25)',
-  accentSolid: 'rgba(124, 116, 232, 0.98)',
-  inputBg: 'rgba(0, 0, 0, 0.22)',
-  inputBorder: 'rgba(255, 255, 255, 0.18)',
-  barMuted: 'rgba(255, 255, 255, 0.14)',
-  deleteText: '#FFB4B4',
-};
 
 const PROGRESS_SECTIONS = [
   { id: 'overview', label: 'Overview' },
@@ -53,34 +39,21 @@ function HistoryTabScreen({
   workoutHistory,
   strengthScoreSummary,
   onOpenStrengthMovements,
-  handleReturnFromSubscreen,
   onOpenDayWorkouts,
 }) {
+  const styles = useStyles();
+  const theme = useGameTheme();
   const strengthColors = {
-    textPrimary: HC.textPrimary,
-    textSecondary: HC.textSecondary,
-    accentSolid: HC.accentSolid,
-    cardBg: HC.cardBg,
-    cardBorder: HC.cardBorder,
+    textPrimary: theme.textPrimary,
+    textSecondary: theme.textSecondary,
+    accentSolid: theme.secondaryButtonBg,
+    cardBg: theme.cardBg,
+    cardBorder: theme.cardBorder,
   };
   return (
-    <View style={styles.menuBody}>
+    <View style={[styles.menuBody, styles.historyProgressBody]}>
       <View style={styles.menuGradientTopGlow} pointerEvents="none" />
       <View style={styles.menuGradientBottomGlow} pointerEvents="none" />
-
-      <View style={styles.menuTopBar}>
-        <TouchableOpacity
-          onPress={handleReturnFromSubscreen}
-          style={styles.historyProgressTopBarSide}
-          accessibilityRole="button"
-          accessibilityLabel="Close progress">
-          <Text style={[styles.historyProgressCloseText, { color: HC.textPrimary }]}>✕</Text>
-        </TouchableOpacity>
-        <View style={styles.historyProgressTitleCenter}>
-          <Text style={styles.menuTopBarDateText}>Progress</Text>
-        </View>
-        <View style={styles.historyProgressTopBarSide} />
-      </View>
 
       <View style={styles.historyProgressSegmentBar} accessibilityRole="tablist">
         {PROGRESS_SECTIONS.map((section) => {
@@ -136,9 +109,9 @@ function HistoryTabScreen({
               onShiftMonth={shiftHistoryCalendarMonth}
               onPressDayWithWorkout={(pick) => onOpenDayWorkouts(pick)}
               styles={styles}
-              textPrimary={HC.textPrimary}
-              textMuted={HC.textMuted}
-              accentSolid={HC.accentSolid}
+              textPrimary={theme.textPrimary}
+              textMuted={theme.textMuted}
+              accentSolid={theme.accentSolid}
               today={new Date()}
             />
           </>
@@ -146,35 +119,35 @@ function HistoryTabScreen({
 
         {historyProgressSection === 'weight' ? (
           <>
-            <View style={[styles.historyStatCard, { backgroundColor: HC.cardBg, borderColor: HC.cardBorder }]}>
+            <View style={[styles.historyStatCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
               <View style={styles.historyWeightHeaderRow}>
-                <Text style={[styles.historyCardTitle, { color: HC.textPrimary, marginBottom: 0 }]}>Graph</Text>
+                <Text style={[styles.historyCardTitle, { color: theme.textPrimary, marginBottom: 0 }]}>Graph</Text>
                 <TouchableOpacity
-                  style={[styles.historyAddWeightButton, { borderColor: HC.inputBorder, backgroundColor: HC.inputBg }]}
+                  style={[styles.historyAddWeightButton, { borderColor: theme.inputBorder, backgroundColor: theme.inputBg }]}
                   onPress={openWeightLogModal}
                   accessibilityRole="button"
                   accessibilityLabel="Add weight log">
-                  <Text style={[styles.historyAddWeightButtonText, { color: HC.textPrimary }]}>+</Text>
+                  <Text style={[styles.historyAddWeightButtonText, { color: theme.textPrimary }]}>+</Text>
                 </TouchableOpacity>
               </View>
-              <Text style={[styles.historyStatCaption, { color: HC.textSecondary, marginBottom: 6 }]}>
+              <Text style={[styles.historyStatCaption, { color: theme.textSecondary, marginBottom: 6 }]}>
                 Every weigh-in you have saved (left = earlier, right = newer). Along the bottom, dates look like 5/11
                 (month/day). If you have more than one year of logs, the year appears too (for example 5/11/25).
               </Text>
               <WeightProgressChart
                 points={historyWeightChartPoints}
-                lineColor={HC.accentSolid}
-                axisColor={HC.inputBorder}
-                textColor={HC.textSecondary}
+                lineColor={theme.accentSolid}
+                axisColor={theme.inputBorder}
+                textColor={theme.textSecondary}
                 pointColor="#FFFFFF"
               />
             </View>
 
-            <View style={[styles.historyStatCard, { backgroundColor: HC.cardBg, borderColor: HC.cardBorder }]}>
-              <Text style={[styles.historyCardTitle, { color: HC.textPrimary }]}>Entries</Text>
+            <View style={[styles.historyStatCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
+              <Text style={[styles.historyCardTitle, { color: theme.textPrimary }]}>Entries</Text>
               <View style={styles.historyWeightEntriesWrap}>
                 {historyAllWeightLogsSorted.length === 0 ? (
-                  <Text style={[styles.setText, { color: HC.textSecondary }]}>No weight entries yet.</Text>
+                  <Text style={[styles.setText, { color: theme.textSecondary }]}>No weight entries yet.</Text>
                 ) : (
                   historyAllWeightLogsSorted.map((entry) => {
                     const d = new Date(entry.dateISO);
@@ -182,25 +155,25 @@ function HistoryTabScreen({
                     return (
                       <View key={entry.id} style={styles.historyWeightEntryRow}>
                         <View style={styles.historyWeightEntryTextBlock}>
-                          <Text style={[styles.historyWeightEntryValue, { color: HC.textPrimary }]}>
+                          <Text style={[styles.historyWeightEntryValue, { color: theme.textPrimary }]}>
                             {Math.round(Number(entry.weightLb) * 10) / 10} lb
                           </Text>
-                          <Text style={[styles.historyWeightEntryDate, { color: HC.textSecondary }]}>{dLabel}</Text>
+                          <Text style={[styles.historyWeightEntryDate, { color: theme.textSecondary }]}>{dLabel}</Text>
                         </View>
                         <View style={styles.historyWeightEntryActions}>
                           <TouchableOpacity
                             onPress={() => openWeightLogModalForEdit(entry)}
-                            style={[styles.historyWeightEntryActionBtn, { borderColor: HC.inputBorder }]}
+                            style={[styles.historyWeightEntryActionBtn, { borderColor: theme.inputBorder }]}
                             accessibilityRole="button"
                             accessibilityLabel={`Edit weight entry from ${dLabel}`}>
-                            <Text style={[styles.historyWeightEntryEditText, { color: HC.textPrimary }]}>Edit</Text>
+                            <Text style={[styles.historyWeightEntryEditText, { color: theme.textPrimary }]}>Edit</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={() => handleDeleteWeightLogEntry(entry.id)}
-                            style={[styles.historyWeightEntryActionBtn, { borderColor: HC.inputBorder }]}
+                            style={[styles.historyWeightEntryActionBtn, { borderColor: theme.inputBorder }]}
                             accessibilityRole="button"
                             accessibilityLabel={`Delete weight entry from ${dLabel}`}>
-                            <Text style={[styles.historyWeightEntryDeleteText, { color: HC.deleteText }]}>Delete</Text>
+                            <Text style={[styles.historyWeightEntryDeleteText, { color: theme.destructiveText }]}>Delete</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -220,18 +193,18 @@ function HistoryTabScreen({
               onOpenMovements={onOpenStrengthMovements}
             />
 
-            <View style={[styles.historyStatCard, { backgroundColor: HC.cardBg, borderColor: HC.cardBorder }]}>
-            <Text style={[styles.historyCardTitle, { color: HC.textPrimary }]}>
+            <View style={[styles.historyStatCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
+            <Text style={[styles.historyCardTitle, { color: theme.textPrimary }]}>
               {historyChartMode === 'year' ? 'Total lifted by month' : 'Total lifted by day'}
             </Text>
-            <Text style={[styles.historyStatCaption, { color: HC.textSecondary, marginBottom: 10 }]}>
+            <Text style={[styles.historyStatCaption, { color: theme.textSecondary, marginBottom: 10 }]}>
               Training volume from saved workouts — weight × reps for each set.
             </Text>
-            <View style={[styles.historyModeSwitch, { borderColor: HC.inputBorder, backgroundColor: HC.inputBg }]}>
+            <View style={[styles.historyModeSwitch, { borderColor: theme.inputBorder, backgroundColor: theme.inputBg }]}>
               <TouchableOpacity
                 style={[
                   styles.historyModeSwitchOption,
-                  historyChartMode === 'month' && { backgroundColor: HC.accentSolid },
+                  historyChartMode === 'month' && { backgroundColor: theme.accentSolid },
                 ]}
                 onPress={() => setHistoryChartMode('month')}
                 accessibilityRole="button"
@@ -239,7 +212,7 @@ function HistoryTabScreen({
                 <Text
                   style={[
                     styles.historyModeSwitchText,
-                    { color: historyChartMode === 'month' ? '#FFFFFF' : HC.textPrimary },
+                    { color: historyChartMode === 'month' ? '#FFFFFF' : theme.textPrimary },
                   ]}>
                   Days in Month
                 </Text>
@@ -247,7 +220,7 @@ function HistoryTabScreen({
               <TouchableOpacity
                 style={[
                   styles.historyModeSwitchOption,
-                  historyChartMode === 'year' && { backgroundColor: HC.accentSolid },
+                  historyChartMode === 'year' && { backgroundColor: theme.accentSolid },
                 ]}
                 onPress={() => setHistoryChartMode('year')}
                 accessibilityRole="button"
@@ -255,7 +228,7 @@ function HistoryTabScreen({
                 <Text
                   style={[
                     styles.historyModeSwitchText,
-                    { color: historyChartMode === 'year' ? '#FFFFFF' : HC.textPrimary },
+                    { color: historyChartMode === 'year' ? '#FFFFFF' : theme.textPrimary },
                   ]}>
                   Months in Year
                 </Text>
@@ -263,51 +236,51 @@ function HistoryTabScreen({
             </View>
             <View style={styles.historyPeriodControlsRow}>
               {historyChartMode === 'month' ? (
-                <View style={[styles.historySwitchCard, { borderColor: HC.inputBorder, backgroundColor: HC.inputBg }]}>
-                  <Text style={[styles.historySwitchLabel, { color: HC.textSecondary }]}>Month</Text>
+                <View style={[styles.historySwitchCard, { borderColor: theme.inputBorder, backgroundColor: theme.inputBg }]}>
+                  <Text style={[styles.historySwitchLabel, { color: theme.textSecondary }]}>Month</Text>
                   <View style={styles.historySwitchControls}>
                     <TouchableOpacity
-                      style={[styles.historySwitchButton, { borderColor: HC.inputBorder }]}
+                      style={[styles.historySwitchButton, { borderColor: theme.inputBorder }]}
                       onPress={() => shiftHistoryMonth(-1)}
                       accessibilityRole="button"
                       accessibilityLabel="Previous month">
-                      <Text style={[styles.historySwitchButtonText, { color: HC.textPrimary }]}>‹</Text>
+                      <Text style={[styles.historySwitchButtonText, { color: theme.textPrimary }]}>‹</Text>
                     </TouchableOpacity>
-                    <Text style={[styles.historySwitchValue, { color: HC.textPrimary }]}>
+                    <Text style={[styles.historySwitchValue, { color: theme.textPrimary }]}>
                       {historySelectedMonth + 1}
                     </Text>
                     <TouchableOpacity
-                      style={[styles.historySwitchButton, { borderColor: HC.inputBorder }]}
+                      style={[styles.historySwitchButton, { borderColor: theme.inputBorder }]}
                       onPress={() => shiftHistoryMonth(1)}
                       accessibilityRole="button"
                       accessibilityLabel="Next month">
-                      <Text style={[styles.historySwitchButtonText, { color: HC.textPrimary }]}>›</Text>
+                      <Text style={[styles.historySwitchButtonText, { color: theme.textPrimary }]}>›</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               ) : null}
-              <View style={[styles.historySwitchCard, { borderColor: HC.inputBorder, backgroundColor: HC.inputBg }]}>
-                <Text style={[styles.historySwitchLabel, { color: HC.textSecondary }]}>Year</Text>
+              <View style={[styles.historySwitchCard, { borderColor: theme.inputBorder, backgroundColor: theme.inputBg }]}>
+                <Text style={[styles.historySwitchLabel, { color: theme.textSecondary }]}>Year</Text>
                 <View style={styles.historySwitchControls}>
                   <TouchableOpacity
-                    style={[styles.historySwitchButton, { borderColor: HC.inputBorder }]}
+                    style={[styles.historySwitchButton, { borderColor: theme.inputBorder }]}
                     onPress={() => shiftHistoryYear(-1)}
                     accessibilityRole="button"
                     accessibilityLabel="Previous year">
-                    <Text style={[styles.historySwitchButtonText, { color: HC.textPrimary }]}>‹</Text>
+                    <Text style={[styles.historySwitchButtonText, { color: theme.textPrimary }]}>‹</Text>
                   </TouchableOpacity>
-                  <Text style={[styles.historySwitchValue, { color: HC.textPrimary }]}>{historySelectedYear}</Text>
+                  <Text style={[styles.historySwitchValue, { color: theme.textPrimary }]}>{historySelectedYear}</Text>
                   <TouchableOpacity
-                    style={[styles.historySwitchButton, { borderColor: HC.inputBorder }]}
+                    style={[styles.historySwitchButton, { borderColor: theme.inputBorder }]}
                     onPress={() => shiftHistoryYear(1)}
                     accessibilityRole="button"
                     accessibilityLabel="Next year">
-                    <Text style={[styles.historySwitchButtonText, { color: HC.textPrimary }]}>›</Text>
+                    <Text style={[styles.historySwitchButtonText, { color: theme.textPrimary }]}>›</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             </View>
-            <Text style={[styles.historyStatCaption, { color: HC.textSecondary, marginBottom: 6 }]}>
+            <Text style={[styles.historyStatCaption, { color: theme.textSecondary, marginBottom: 6 }]}>
               {historyChartMode === 'year'
                 ? `${historyYearLabel} · x-axis = month, y-axis = total pounds lifted in that month`
                 : `${historyMonthLabel} · x-axis = day of month, y-axis = total pounds lifted`}
@@ -316,10 +289,10 @@ function HistoryTabScreen({
               values={historyChartValues}
               xLabels={historyChartMode === 'year' ? historyYearXAxisLabels : historyMonthXAxisLabels}
               maxVolume={historyChartMax}
-              accentColor={HC.accentSolid}
-              axisColor={HC.inputBorder}
-              captionColor={HC.textSecondary}
-              barMutedColor={HC.barMuted}
+              accentColor={theme.accentSolid}
+              axisColor={theme.inputBorder}
+              captionColor={theme.textSecondary}
+              barMutedColor={theme.barMuted}
               captionText={
                 historyChartMode === 'year'
                   ? 'Each bar is one month. Y-axis is pounds lifted in that month.'

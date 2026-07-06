@@ -5,14 +5,22 @@ const SYNTH_PRIMARY = 0.62;
 const SYNTH_SECONDARY = 0.38;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const MS_48H = 2 * MS_PER_DAY;
-const MS_7D = 7 * MS_PER_DAY;
+const MS_10D = 10 * MS_PER_DAY;
+
+/**
+ * Fatigue decays exponentially:
+ * - very recent sessions count most
+ * - each additional day reduces impact smoothly (no hard cutoffs)
+ */
+const FATIGUE_HALF_LIFE_DAYS = 2.2;
+const FATIGUE_HALF_LIFE_MS = FATIGUE_HALF_LIFE_DAYS * MS_PER_DAY;
+const LN2 = Math.log(2);
 
 /** Minimum per-set stress to count as “worked” for last-hit tracking. */
 const MIN_SET_STRESS = 0.25;
 
 /**
- * @typedef {'rested' | 'moderate' | 'fatigued'} MuscleRecoveryStatus
+ * @typedef {'ready' | 'recovering' | 'highFatigue'} MuscleRecoveryStatus
  */
 
 /**
@@ -73,10 +81,10 @@ function rawStressBySlugFromSets(setsByMovement, exerciseLookup) {
 }
 
 /**
- * Recovery status per muscle slug from logged workout history.
- * - rested (green): ready for a full workout
- * - moderate (gray): OK for moderate volume
- * - fatigued (red): needs more recovery
+ * Recovery status per muscle slug from decayed workload in recent history.
+ * - ready: low remaining fatigue, likely fully trainable
+ * - recovering: some remaining fatigue, generally trainable
+ * - highFatigue: unusually high recent workload / recovery debt
  *
  * @param {unknown[]} workoutHistory
  * @param {Record<string, { primaryMuscles?: string[]; secondaryMuscles?: string[] }>} exerciseLookup
@@ -86,17 +94,11 @@ function rawStressBySlugFromSets(setsByMovement, exerciseLookup) {
 export function computeMuscleRecoveryStatusBySlug(workoutHistory, exerciseLookup, referenceDate = new Date()) {
   const now = referenceDate.getTime();
 
-  /** @type {Record<string, number | null>} */
-  const lastWorkedMs = {};
   /** @type {Record<string, number>} */
-  const stress48h = {};
-  /** @type {Record<string, number>} */
-  const stress7d = {};
+  const decayedFatigue = {};
 
   MUSCLE_GROUPS.forEach((g) => {
-    lastWorkedMs[g] = null;
-    stress48h[g] = 0;
-    stress7d[g] = 0;
+    decayedFatigue[g] = 0;
   });
 
   if (Array.isArray(workoutHistory)) {
@@ -110,17 +112,16 @@ export function computeMuscleRecoveryStatusBySlug(workoutHistory, exerciseLookup
       if (Number.isNaN(t)) continue;
 
       const ageMs = now - t;
-      if (ageMs < 0 || ageMs > MS_7D) continue;
+      if (ageMs < 0 || ageMs > MS_10D) continue;
+
+      // Exponential decay keeps changes smooth instead of abrupt day buckets.
+      const decayWeight = Math.exp((-LN2 * ageMs) / FATIGUE_HALF_LIFE_MS);
 
       const stress = rawStressBySlugFromSets(workout.setsByMovement, exerciseLookup);
       MUSCLE_GROUPS.forEach((g) => {
         const s = stress[g] ?? 0;
         if (s < MIN_SET_STRESS) return;
-        if (ageMs <= MS_48H) stress48h[g] += s;
-        stress7d[g] += s;
-        if (lastWorkedMs[g] === null || t > lastWorkedMs[g]) {
-          lastWorkedMs[g] = t;
-        }
+        decayedFatigue[g] += s * decayWeight;
       });
     }
   }
@@ -128,28 +129,16 @@ export function computeMuscleRecoveryStatusBySlug(workoutHistory, exerciseLookup
   /** @type {Record<string, MuscleRecoveryStatus>} */
   const out = {};
   MUSCLE_GROUPS.forEach((g) => {
-    const last = lastWorkedMs[g];
-    const daysSince = last === null ? null : (now - last) / MS_PER_DAY;
-    const s48 = stress48h[g] ?? 0;
-    const s7 = stress7d[g] ?? 0;
-
-    if (daysSince !== null && daysSince < 2) {
-      out[g] = 'fatigued';
+    const score = decayedFatigue[g] ?? 0;
+    if (score >= 8.5) {
+      out[g] = 'highFatigue';
       return;
     }
-    if (s48 >= 5) {
-      out[g] = 'fatigued';
+    if (score >= 2.8) {
+      out[g] = 'recovering';
       return;
     }
-    if (daysSince !== null && daysSince < 4) {
-      out[g] = 'moderate';
-      return;
-    }
-    if (s7 >= 12 && daysSince !== null && daysSince < 7) {
-      out[g] = 'moderate';
-      return;
-    }
-    out[g] = 'rested';
+    out[g] = 'ready';
   });
 
   return out;

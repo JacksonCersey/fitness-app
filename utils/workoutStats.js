@@ -21,6 +21,16 @@ export function getWorkoutVolumeLb(workout) {
   return total;
 }
 
+/** Lifetime training volume across all logged workouts (lb). */
+export function getLifetimeVolumeLb(workouts) {
+  if (!Array.isArray(workouts)) return 0;
+  let total = 0;
+  for (let i = 0; i < workouts.length; i += 1) {
+    total += getWorkoutVolumeLb(workouts[i]);
+  }
+  return total;
+}
+
 /** Number of calendar days in a month (monthIndex 0–11). */
 export function getDaysInMonth(year, monthIndex) {
   return new Date(year, monthIndex + 1, 0).getDate();

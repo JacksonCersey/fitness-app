@@ -16,7 +16,7 @@ const LAYER_TRANSFORM = LABELED_FRONT_LAYER_TRANSFORM;
  * Front body from `assets/images/musclessvglabeledfront.svg` with heat-map fills from activationBySlug.
  * @param {{
  *   activationBySlug?: Record<string, number>;
- *   statusBySlug?: Record<string, 'rested' | 'moderate' | 'fatigued'>;
+ *   statusBySlug?: Record<string, 'ready' | 'recovering' | 'highFatigue'>;
  *   height: number;
  *   width?: number | string;
  *   viewBox?: string;

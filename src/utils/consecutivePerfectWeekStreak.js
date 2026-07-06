@@ -4,6 +4,7 @@ import {
   weeklySplitPlanIsConfigured,
 } from '../data/weeklySplitPlanner';
 import { getSundayStartOfWeekLocal } from './weeklyPplSetTotals';
+import { hasLoggedWorkoutInCurrentWeek } from './consecutiveWeekStreak';
 
 /**
  * @param {Date} d
@@ -99,4 +100,50 @@ export function computeConsecutivePerfectWeekStreak(plan, workoutHistory, refere
   }
 
   return streak;
+}
+
+/**
+ * Carousel state for the current Sun–Sat week: day-by-day progress (7 steps) and whether
+ * a past split training day was missed (inactive).
+ *
+ * @param {{ days: { type: string; mixedMuscles?: string[] }[] }} plan
+ * @param {unknown[]} workoutHistory
+ * @param {Date} [referenceDate]
+ * @returns {{ completedDays: number; progress: number; isActive: boolean }}
+ */
+export function getCurrentWeekPerfectCarouselState(plan, workoutHistory, referenceDate = new Date()) {
+  if (!weeklySplitPlanIsConfigured(plan) || !plan.days) {
+    return { completedDays: 0, progress: 0, isActive: false };
+  }
+
+  const today = startOfDay(referenceDate);
+  const weekStartSunday = getSundayStartOfWeekLocal(referenceDate);
+  let completedDays = 0;
+  let skipped = false;
+
+  for (let i = 0; i < 7; i += 1) {
+    const entry = plan.days[i];
+    const dayDate = calendarDateForPlanIndexInSunWeek(weekStartSunday, i);
+    if (dayDate.getTime() > today.getTime()) continue;
+
+    if (!isSplitPlanTrainingDay(entry)) {
+      completedDays += 1;
+      continue;
+    }
+
+    if (calendarDayHasWorkout(workoutHistory, dayDate)) {
+      completedDays += 1;
+    } else if (dayDate.getTime() < today.getTime()) {
+      skipped = true;
+    }
+  }
+
+  const hasWorkoutThisWeek = hasLoggedWorkoutInCurrentWeek(workoutHistory, referenceDate);
+  const isActive = !skipped && hasWorkoutThisWeek;
+
+  return {
+    completedDays: hasWorkoutThisWeek ? completedDays : 0,
+    progress: hasWorkoutThisWeek ? completedDays / 7 : 0,
+    isActive,
+  };
 }

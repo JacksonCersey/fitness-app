@@ -1,8 +1,8 @@
 import React, { memo, useMemo } from 'react';
+import { useStyles } from '../app/context/ThemeStylesContext';
 import { Image, Text, View } from 'react-native';
 import { getMovementMaxDisplay } from '../utils/movementSetHistory';
 import { getHighlightChipForMovement } from '../utils/splitDayHighlightIcons';
-import { styles } from '../styles';
 
 /**
  * Compact movement box for the horizontal “recently completed” strip.
@@ -13,6 +13,7 @@ import { styles } from '../styles';
  * }} props
  */
 function MovementRecentScrollCard({ row, lastCompletedAtISO, exerciseLookup }) {
+  const styles = useStyles();
   const maxDisplay = row.summary ? getMovementMaxDisplay(row.summary, exerciseLookup) : null;
   const muscleChip = useMemo(
     () => getHighlightChipForMovement(row.movement, exerciseLookup, row.primaryMuscle),

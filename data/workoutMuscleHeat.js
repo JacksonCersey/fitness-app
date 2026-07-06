@@ -198,15 +198,15 @@ export function heatFillForBackPath(pathId, activationBySlug) {
   return fillPathFromHeat(pathId, BACK_SVG_PATH_MUSCLES, activationBySlug, baseFillForBackPathId);
 }
 
-/** @typedef {'rested' | 'moderate' | 'fatigued'} MuscleRecoveryStatus */
+/** @typedef {'ready' | 'recovering' | 'highFatigue'} MuscleRecoveryStatus */
 
 export const MUSCLE_RECOVERY_STATUS_COLORS = {
-  rested: '#4ADE80',
-  moderate: '#94A3B8',
-  fatigued: '#F87171',
+  ready: '#22C55E',
+  recovering: '#94A3B8',
+  highFatigue: '#EF4444',
 };
 
-const STATUS_RANK = { rested: 0, moderate: 1, fatigued: 2 };
+const STATUS_RANK = { ready: 0, recovering: 1, highFatigue: 2 };
 
 /**
  * @param {string[]} labels
@@ -220,7 +220,7 @@ function worstStatusForPathLabels(labels, statusBySlug) {
     const slugs = DISPLAY_LABEL_TO_SLUGS[labels[i]];
     if (!slugs) continue;
     for (let j = 0; j < slugs.length; j += 1) {
-      const st = statusBySlug[slugs[j]] ?? 'rested';
+      const st = statusBySlug[slugs[j]] ?? 'ready';
       if (worst === null || STATUS_RANK[st] > STATUS_RANK[worst]) worst = st;
     }
   }
@@ -243,16 +243,16 @@ function statusFillForPath(pathId, pathToLabels, statusBySlug, baseFill) {
 
 /** Darker silhouette / head fills for home muscle-status diagrams (vs default preview grays). */
 const RECOVERY_FRONT_BASE_FILL = {
-  path46: '#2C2F36',
-  path48: '#353840',
+  path46: '#787D88',
+  path48: '#6C717C',
   defaultMuscles: '#3A3D45',
 };
 
 const RECOVERY_BACK_BASE_FILL = {
-  path50: '#2C2F36',
-  path52: '#353840',
-  path53: '#353840',
-  path54: '#353840',
+  path50: '#787D88',
+  path52: '#6C717C',
+  path53: '#6C717C',
+  path54: '#6C717C',
   defaultMuscles: '#3A3D45',
 };
 

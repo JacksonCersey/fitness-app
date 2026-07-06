@@ -1,4 +1,5 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
+import { useStyles, useWorkoutTheme } from '../app/context/ThemeStylesContext';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import {
   CATEGORY_LABELS,
@@ -8,8 +9,6 @@ import {
   TargetsWeeklyPplRingsRow,
 } from '../components/targetsProgressShared';
 import { WEEKLY_SUBCATEGORY_GROUPS } from '../data/weeklyTargetSubcategories';
-import { styles } from '../styles';
-import { WORKOUT_THEME } from '../theme/workoutTheme';
 import { ESTIMATED_WEEKLY_SUBTARGETS, WEEKLY_SET_TARGETS } from '../utils/weeklyPplSetTotals';
 
 function formatWeekRangeLabel(weekStartMonday) {
@@ -26,7 +25,8 @@ function TargetsCategoryCard({
   submenuOpen,
   onToggleSubmenu,
 }) {
-  const wt = WORKOUT_THEME;
+  const styles = useStyles();
+  const wt = useWorkoutTheme();
   const goal = WEEKLY_SET_TARGETS[categoryKey];
   const done = weeklyPplCounts[categoryKey] ?? 0;
   const pct = goal > 0 ? Math.min(1, done / goal) : 0;
@@ -103,9 +103,9 @@ function MuscleMapTabScreen({
   lastWorkoutPplBreakdown,
   weekStartMonday,
   weeklySplitPlan,
-  onOpenSplitPlanner,
 }) {
-  const wt = WORKOUT_THEME;
+  const styles = useStyles();
+  const wt = useWorkoutTheme();
 
   const weekLabel = useMemo(() => formatWeekRangeLabel(weekStartMonday), [weekStartMonday]);
 
@@ -135,15 +135,6 @@ function MuscleMapTabScreen({
         style={[styles.mainTabsFullBleedScroll, { backgroundColor: wt.screenBg }]}
         contentContainerStyle={[styles.container, { paddingBottom: 32 + mainTabBottomReserve }]}>
         <Text style={[styles.summaryTitle, { color: wt.textPrimary }]}>Targets</Text>
-        <TouchableOpacity
-          style={[styles.splitTargetsEntry, { backgroundColor: wt.innerCardBg, borderColor: wt.inputBorder }]}
-          onPress={onOpenSplitPlanner}
-          activeOpacity={0.88}
-          accessibilityRole="button"
-          accessibilityLabel="Open weekly split planner">
-          <Text style={[styles.splitTargetsEntryLabel, { color: wt.textPrimary }]}>Split</Text>
-          <Text style={[styles.splitTargetsEntryChevron, { color: wt.textMuted }]}>›</Text>
-        </TouchableOpacity>
         <TargetsSplitWeekStrip weeklySplitPlan={weeklySplitPlan} />
         <TargetsWeeklyPplRingsRow weeklyPplCounts={weeklyPplCounts} />
         <Text style={[styles.profileHint, { color: wt.textMuted, marginBottom: 16 }]}>

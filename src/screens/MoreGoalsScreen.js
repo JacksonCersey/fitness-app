@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
+import { useGameTheme, useStyles } from '../app/context/ThemeStylesContext';
 import { Animated, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { styles } from '../styles';
 
 function MoreGoalsScreen({
   screenTransitionOpacity,
@@ -9,6 +9,8 @@ function MoreGoalsScreen({
   setProfileGoalDraft,
   onSaveGoal,
 }) {
+  const styles = useStyles();
+  const theme = useGameTheme();
   return (
     <SafeAreaView style={styles.menuScreen}>
       <Animated.View style={[styles.screenFadeContainer, { opacity: screenTransitionOpacity }]}>
@@ -25,7 +27,7 @@ function MoreGoalsScreen({
               onPress={onBack}
               accessibilityRole="button"
               accessibilityLabel="Go back">
-              <Text style={[styles.workoutCloseButtonText, { color: '#4B3CC1' }]}>‹</Text>
+              <Text style={[styles.workoutCloseButtonText, { color: theme.navBack }]}>‹</Text>
             </TouchableOpacity>
             <Text style={styles.menuSubscreenNavTitle}>Goals</Text>
           </View>

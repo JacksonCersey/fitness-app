@@ -1,8 +1,8 @@
 import React, { memo } from 'react';
+import { useGameTheme, useStyles } from '../app/context/ThemeStylesContext';
 import { Animated, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { formatVolumeCompact, getWorkoutVolumeLb } from '../../utils/workoutStats';
 import { formatTime, formatWorkoutSetSummaryText } from '../utils/formatWorkout';
-import { styles } from '../styles';
 
 function HistoryDayWorkoutsScreen({
   screenTransitionOpacity,
@@ -16,6 +16,8 @@ function HistoryDayWorkoutsScreen({
   deleteText,
   cardBg,
 }) {
+  const styles = useStyles();
+  const theme = useGameTheme();
   return (
     <SafeAreaView style={styles.menuScreen}>
       <Animated.View style={[styles.screenFadeContainer, { opacity: screenTransitionOpacity }]}>
@@ -32,7 +34,7 @@ function HistoryDayWorkoutsScreen({
               onPress={onBack}
               accessibilityRole="button"
               accessibilityLabel="Go back">
-              <Text style={[styles.workoutCloseButtonText, { color: '#4B3CC1' }]}>‹</Text>
+              <Text style={[styles.workoutCloseButtonText, { color: theme.navBack }]}>‹</Text>
             </TouchableOpacity>
             <Text style={styles.menuSubscreenNavTitle}>{dayTitleLabel}</Text>
           </View>

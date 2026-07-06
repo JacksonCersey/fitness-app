@@ -1,11 +1,11 @@
 import React, { memo, useMemo } from 'react';
+import { useStyles, useWorkoutTheme } from '../app/context/ThemeStylesContext';
+import { SHARED_ACCENTS } from '../theme/gameTheme';
 import { Image, Text, View } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 import BackMuscleDiagramSvg from '../../components/BackMuscleDiagramSvg';
 import FrontMuscleDiagramSvg from '../../components/FrontMuscleDiagramSvg';
 import { isSplitPlanTrainingDay, weeklySplitPlanIsConfigured } from '../data/weeklySplitPlanner';
-import { styles } from '../styles';
-import { WORKOUT_THEME } from '../theme/workoutTheme';
 import { muscleActivationFromDisplayLabels } from '../utils/muscleActivationFromLabels';
 import { WEEKLY_SET_TARGETS } from '../utils/weeklyPplSetTotals';
 
@@ -30,9 +30,9 @@ const PPL_RING_TRACK = 'rgba(255, 255, 255, 0.12)';
 
 /** Solid accent for rings, bars, and labels (push red, pull yellow, legs blue). */
 export const PPL_RING_COLORS = {
-  push: '#E5484D',
-  pull: '#EAB308',
-  legs: '#3B82F6',
+  push: SHARED_ACCENTS.pplPush,
+  pull: SHARED_ACCENTS.pplPull,
+  legs: SHARED_ACCENTS.pplLegs,
 };
 
 function TargetsPplProgressRing({
@@ -86,7 +86,8 @@ function TargetsPplProgressRing({
  * Summary row under the split strip: three circular set-progress rings for Push / Pull / Legs.
  */
 export const TargetsWeeklyPplRingsRow = memo(function TargetsWeeklyPplRingsRow({ weeklyPplCounts }) {
-  const wt = WORKOUT_THEME;
+  const styles = useStyles();
+  const wt = useWorkoutTheme();
   const size = 78;
   const stroke = 8;
 
@@ -126,6 +127,7 @@ const BAR_PILL_EDGE_INSET = 3;
  * Horizontal progress under Targets rows: solid fill + white pill at current progress tip.
  */
 export function TargetsPplHorizontalProgressBar({ categoryKey, pct, goal, borderColor, trackBg }) {
+  const styles = useStyles();
   const fillColor = PPL_RING_COLORS[categoryKey] ?? PPL_RING_COLORS.push;
   const wPct = Math.max(0, Math.min(100, Math.round(pct * 100)));
   const showPill = goal > 0;
@@ -161,6 +163,7 @@ export function TargetsPplHorizontalProgressBar({ categoryKey, pct, goal, border
 }
 
 export function CategoryMusclePair({ categoryKey }) {
+  const styles = useStyles();
   const activation = useMemo(
     () => muscleActivationFromDisplayLabels(CATEGORY_MUSCLES[categoryKey] ?? []),
     [categoryKey],
@@ -185,10 +188,11 @@ function planIndexFromSunFirstColumn(colIndex) {
   return (colIndex + 6) % 7;
 }
 
-/** @typedef {'rest' | 'weight' | 'streak'} WeekStripIcon */
+/** @typedef {'rest' | 'weight' | 'streak' | 'perfect'} WeekStripIcon */
 
 function SplitWeekStripCell({ letter, icon, isToday, a11yLabel }) {
-  const wt = WORKOUT_THEME;
+  const styles = useStyles();
+  const wt = useWorkoutTheme();
   return (
     <View
       style={[styles.targetsSplitWeekCell, isToday && styles.targetsSplitWeekCellToday]}
@@ -204,6 +208,13 @@ function SplitWeekStripCell({ letter, icon, isToday, a11yLabel }) {
       {icon === 'streak' ? (
         <Image
           source={require('../../assets/images/streaklogo.png')}
+          style={styles.targetsSplitWeekStreakIcon}
+          resizeMode="contain"
+          accessibilityElementsHidden
+        />
+      ) : icon === 'perfect' ? (
+        <Image
+          source={require('../../assets/images/perfectstreaklogo.png')}
           style={styles.targetsSplitWeekStreakIcon}
           resizeMode="contain"
           accessibilityElementsHidden
@@ -226,7 +237,8 @@ function SplitWeekStripCell({ letter, icon, isToday, a11yLabel }) {
 }
 
 export const TargetsSplitWeekStrip = memo(function TargetsSplitWeekStrip({ weeklySplitPlan }) {
-  const wt = WORKOUT_THEME;
+  const styles = useStyles();
+  const wt = useWorkoutTheme();
   const days = weeklySplitPlan?.days;
 
   return (
@@ -256,10 +268,15 @@ export const TargetsSplitWeekStrip = memo(function TargetsSplitWeekStrip({ weekl
 /**
  * Home menu week strip: same shell as Targets → Split.
  * Weight = planned training day (split); streak = workout logged that day; circle = rest.
- * @param {{ weeklySplitPlan: { days: unknown[] }; weeklyStreakDays: { key: string; label: string; hasWorkout: boolean; isToday: boolean }[] }} props
+ * @param {{ weeklySplitPlan: { days: unknown[] }; weeklyStreakDays: { key: string; label: string; hasWorkout: boolean; isToday: boolean }[]; usePerfectStreakIcons?: boolean }} props
  */
-export const MenuHomeWeekStrip = memo(function MenuHomeWeekStrip({ weeklySplitPlan, weeklyStreakDays }) {
-  const wt = WORKOUT_THEME;
+export const MenuHomeWeekStrip = memo(function MenuHomeWeekStrip({
+  weeklySplitPlan,
+  weeklyStreakDays,
+  usePerfectStreakIcons = false,
+}) {
+  const styles = useStyles();
+  const wt = useWorkoutTheme();
   const planDays = weeklySplitPlan?.days;
   const splitConfigured = weeklySplitPlanIsConfigured(weeklySplitPlan);
 
@@ -278,7 +295,7 @@ export const MenuHomeWeekStrip = memo(function MenuHomeWeekStrip({ weeklySplitPl
 
         /** @type {WeekStripIcon} */
         let icon = 'rest';
-        if (hasWorkout) icon = 'streak';
+        if (hasWorkout) icon = usePerfectStreakIcons ? 'perfect' : 'streak';
         else if (isTraining) icon = 'weight';
 
         let a11y = SUN_FIRST_NAMES[colIndex];

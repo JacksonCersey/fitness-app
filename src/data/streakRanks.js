@@ -3,48 +3,57 @@
  * Thresholds are minimum streak length in weeks to earn each tier.
  */
 
+/** Shown when streak is 0 — not yet earned Bronze. */
+export const UNRANKED_RANK = {
+  id: 'unranked',
+  label: 'Unranked',
+  weeksRequired: 0,
+  image: require('../../assets/images/ranks/unranked.png'),
+  accent: '#64748B',
+};
+
 export const STREAK_RANKS = [
   {
     id: 'bronze',
     label: 'Bronze',
     weeksRequired: 1,
     image: require('../../assets/images/ranks/bronze.png'),
-    accent: '#C17F3A',
+    accent: '#D97706',
   },
   {
     id: 'silver',
     label: 'Silver',
     weeksRequired: 2,
     image: require('../../assets/images/ranks/silver.png'),
-    accent: '#B8C4D0',
+    accent: '#94A3B8',
   },
   {
     id: 'emerald',
     label: 'Emerald',
     weeksRequired: 4,
     image: require('../../assets/images/ranks/emerald.png'),
-    accent: '#3CBF7A',
+    accent: '#22C55E',
   },
   {
     id: 'gold',
     label: 'Gold',
     weeksRequired: 8,
     image: require('../../assets/images/ranks/gold.png'),
-    accent: '#E4B429',
+    accent: '#F59E0B',
   },
   {
     id: 'ruby',
     label: 'Ruby',
     weeksRequired: 16,
     image: require('../../assets/images/ranks/ruby.png'),
-    accent: '#E04562',
+    accent: '#EF4444',
   },
   {
     id: 'diamond',
     label: 'Diamond',
     weeksRequired: 32,
     image: require('../../assets/images/ranks/diamond.png'),
-    accent: '#6EC8E8',
+    accent: '#38BDF8',
   },
   {
     id: 'platinum',
@@ -71,7 +80,7 @@ export function getStreakRankProgress(streakWeeks) {
 
   const currentRank = currentIndex >= 0 ? STREAK_RANKS[currentIndex] : null;
   const nextRank = currentIndex < STREAK_RANKS.length - 1 ? STREAK_RANKS[currentIndex + 1] : null;
-  const displayRank = currentRank ?? STREAK_RANKS[0];
+  const displayRank = currentRank ?? UNRANKED_RANK;
 
   const progressWeeksCurrent = w;
   const progressWeeksTarget = nextRank

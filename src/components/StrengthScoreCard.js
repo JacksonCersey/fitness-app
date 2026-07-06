@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
+import { useStyles } from '../app/context/ThemeStylesContext';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { styles } from '../styles';
 
 /**
  * @param {{
@@ -11,6 +11,7 @@ import { styles } from '../styles';
  * }} props
  */
 function StrengthScoreCard({ summary, compact = false, onOpenMovements, colors }) {
+  const styles = useStyles();
   if (!summary) return null;
 
   const trend =

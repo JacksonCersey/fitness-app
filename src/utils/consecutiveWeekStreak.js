@@ -46,3 +46,14 @@ export function computeConsecutiveTrainingWeekStreak(workoutHistory, referenceDa
   }
   return streak;
 }
+
+/**
+ * Whether the user has logged at least one workout in the current Sunday-start week.
+ * @param {unknown[]} workoutHistory
+ * @param {Date} [referenceDate]
+ * @returns {boolean}
+ */
+export function hasLoggedWorkoutInCurrentWeek(workoutHistory, referenceDate = new Date()) {
+  const weekStart = getSundayStartOfWeekLocal(referenceDate);
+  return weekHasAnyWorkout(workoutHistory, weekStart);
+}

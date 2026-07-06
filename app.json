@@ -6,6 +6,11 @@
     "orientation": "portrait",
     "android": {
       "softwareKeyboardLayoutMode": "pan"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "38f21f0d-b2c4-457d-b176-1ff4d68aa91f"
+      }
     }
   }
 }

@@ -1,13 +1,14 @@
 import React, { memo, useMemo } from 'react';
+import { useStyles } from '../app/context/ThemeStylesContext';
 import { Image, Text, View } from 'react-native';
 import { STREAK_RANKS, getStreakRankProgress } from '../data/streakRanks';
-import { styles } from '../styles';
 
 /**
  * Rank ladder for Streak screen (More → Streak & this week).
  * @param {{ consecutiveTrainingWeekStreak: number }} props
  */
 function StreakRankPanel({ consecutiveTrainingWeekStreak }) {
+  const styles = useStyles();
   const rank = useMemo(
     () => getStreakRankProgress(consecutiveTrainingWeekStreak),
     [consecutiveTrainingWeekStreak],
@@ -28,8 +29,8 @@ function StreakRankPanel({ consecutiveTrainingWeekStreak }) {
         <Image source={rank.displayRank.image} style={styles.streakRankCurrentBadge} resizeMode="contain" />
         <View style={styles.streakRankCurrentTextCol}>
           <Text style={styles.streakRankCurrentLabel}>
-            {rank.currentRank ? rank.currentRank.label : 'Unranked'}
-            {rank.currentRank ? '' : ` → ${STREAK_RANKS[0].label}`}
+            {rank.displayRank.label}
+            {rank.currentRank ? '' : ` → ${rank.nextRank?.label ?? STREAK_RANKS[0].label}`}
           </Text>
           <Text style={styles.streakRankCurrentSub}>
             {rank.streakWeeks} week{rank.streakWeeks === 1 ? '' : 's'} streak

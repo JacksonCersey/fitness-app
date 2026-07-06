@@ -1,10 +1,9 @@
 import React, { memo, useState } from 'react';
+import { useStyles, useWorkoutTheme } from '../app/context/ThemeStylesContext';
 import { Text, TouchableOpacity, View } from 'react-native';
 import BackMuscleDiagramSvg from '../../components/BackMuscleDiagramSvg';
 import FrontMuscleDiagramSvg from '../../components/FrontMuscleDiagramSvg';
 import { WEEKLY_SUBCATEGORY_GROUPS } from '../data/weeklyTargetSubcategories';
-import { WORKOUT_THEME } from '../theme/workoutTheme';
-import { styles } from '../styles';
 import { CATEGORY_LABELS, CATEGORY_ORDER, CategoryMusclePair } from './targetsProgressShared';
 import { ESTIMATED_WEEKLY_SUBTARGETS, WEEKLY_SET_TARGETS } from '../utils/weeklyPplSetTotals';
 
@@ -17,7 +16,8 @@ function WorkoutTargetsCategoryRow({
   submenuOpen,
   onToggleSubmenu,
 }) {
-  const wt = WORKOUT_THEME;
+  const styles = useStyles();
+  const wt = useWorkoutTheme();
   const goal = WEEKLY_SET_TARGETS[categoryKey];
   const done = weeklyPplCounts[categoryKey] ?? 0;
   const pct = goal > 0 ? Math.min(1, done / goal) : 0;
@@ -95,7 +95,8 @@ function WorkoutSessionTargetsSheetContent({
   sessionActivationBySlug,
   onClose,
 }) {
-  const wt = WORKOUT_THEME;
+  const styles = useStyles();
+  const wt = useWorkoutTheme();
   const [submenuOpen, setSubmenuOpen] = useState(() => ({
     push: false,
     pull: false,

@@ -1,4 +1,5 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useGameTheme, useStyles } from '../app/context/ThemeStylesContext';
 import {
   Animated,
   SafeAreaView,
@@ -21,7 +22,6 @@ import {
   MOVEMENT_REGION_SECTION_IDS,
 } from '../utils/movementCatalog';
 import { getMostRecentCompletedMovements } from '../utils/movementSetHistory';
-import { styles } from '../styles';
 
 function StrengthMovementsScreen({
   screenTransitionOpacity,
@@ -31,6 +31,8 @@ function StrengthMovementsScreen({
   favoriteMovements,
   onToggleFavoriteMovement,
 }) {
+  const styles = useStyles();
+  const theme = useGameTheme();
   const [movementSearchQuery, setMovementSearchQuery] = useState('');
   const [expandedSections, setExpandedSections] = useState({});
   const [expandedNestedSections, setExpandedNestedSections] = useState({});
@@ -115,7 +117,7 @@ function StrengthMovementsScreen({
               onPress={onBack}
               accessibilityRole="button"
               accessibilityLabel="Go back">
-              <Text style={[styles.workoutCloseButtonText, { color: '#4B3CC1' }]}>‹</Text>
+              <Text style={[styles.workoutCloseButtonText, { color: theme.navBack }]}>‹</Text>
             </TouchableOpacity>
             <Text style={styles.menuSubscreenNavTitle}>Movements</Text>
           </View>

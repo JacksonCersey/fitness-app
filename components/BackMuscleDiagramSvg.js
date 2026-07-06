@@ -16,7 +16,7 @@ const LAYER_TRANSFORM = LABELED_BACK_LAYER_TRANSFORM;
  * Back body from `assets/images/musclessvglabeledback.svg` with heat-map fills from activationBySlug.
  * @param {{
  *   activationBySlug?: Record<string, number>;
- *   statusBySlug?: Record<string, 'rested' | 'moderate' | 'fatigued'>;
+ *   statusBySlug?: Record<string, 'ready' | 'recovering' | 'highFatigue'>;
  *   height: number;
  *   width?: number | string;
  *   viewBox?: string;

@@ -1,3 +1,5 @@
+/** Set to `'true'` once the first-run onboarding wizard is finished. */
+export const ONBOARDING_COMPLETED_STORAGE_KEY = 'onboarding_completed_v1';
 export const HISTORY_STORAGE_KEY = 'workout_history_v1';
 export const THEME_STORAGE_KEY = 'theme_preference_v1';
 export const PROFILE_NAME_STORAGE_KEY = 'profile_name_v1';

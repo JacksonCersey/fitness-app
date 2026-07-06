@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
+import { useStyles } from '../app/context/ThemeStylesContext';
 import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { styles } from '../styles';
 
 const MORE_LINK_ICONS = {
   profile: require('../../assets/images/more/profileicon.png'),
@@ -14,6 +14,7 @@ const MORE_LINK_ICONS = {
 /** @typedef {'only' | 'first' | 'middle' | 'last'} MoreRowPosition */
 
 function MoreLinkRow({ icon, title, subtitle, onPress, muted, accessibilityLabel, position = 'only' }) {
+  const styles = useStyles();
   const rowStyle = [
     styles.menuMoreLinkRow,
     (position === 'middle' || position === 'last') && styles.menuMoreLinkRowSeparator,
@@ -42,6 +43,7 @@ function MoreLinkRow({ icon, title, subtitle, onPress, muted, accessibilityLabel
 }
 
 function MoreLinkGroup({ children }) {
+  const styles = useStyles();
   const items = React.Children.toArray(children).filter(Boolean);
   return (
     <View style={styles.menuMoreLinkGroup}>
@@ -65,11 +67,12 @@ function MoreHubTabScreen({
   handleOpenProfileFromMore,
   handleOpenMoreGoals,
   handleOpenMovementsFromMore,
-  handleOpenMuscleMapFromMore,
+  handleOpenSplitPlannerFromMore,
   handleOpenStreakSubscreen,
   handleOpenHistoryFromMore,
   handleOpenAppearance,
 }) {
+  const styles = useStyles();
   return (
     <View style={styles.menuMoreScreen}>
       <View style={styles.menuMoreHeader}>
@@ -117,10 +120,10 @@ function MoreHubTabScreen({
           />
           <MoreLinkRow
             icon={MORE_LINK_ICONS.targets}
-            title="Targets"
-            subtitle="Weekly push / pull / legs set goals"
-            onPress={handleOpenMuscleMapFromMore}
-            accessibilityLabel="Weekly training split"
+            title="Plan"
+            subtitle="Set your weekly training days"
+            onPress={handleOpenSplitPlannerFromMore}
+            accessibilityLabel="Weekly training plan"
           />
         </MoreLinkGroup>
 

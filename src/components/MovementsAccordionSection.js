@@ -1,4 +1,5 @@
 import React, { memo, useEffect, useRef } from 'react';
+import { useStyles } from '../app/context/ThemeStylesContext';
 import {
   Animated,
   LayoutAnimation,
@@ -8,7 +9,6 @@ import {
   UIManager,
   View,
 } from 'react-native';
-import { styles } from '../styles';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -41,6 +41,7 @@ export function configureMovementsAccordionAnimation() {
  * }} props
  */
 function MovementsAccordionSection({ sectionId, label, count, expanded, onToggle, nested = false, children }) {
+  const styles = useStyles();
   const chevronAnim = useRef(new Animated.Value(expanded ? 1 : 0)).current;
 
   useEffect(() => {

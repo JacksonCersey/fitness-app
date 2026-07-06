@@ -1,6 +1,6 @@
 import React from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg';
 
 const PAD_LEFT = 34;
 const PAD_RIGHT = 10;
@@ -33,7 +33,9 @@ export default function WeightProgressChart({
   const chartH = 174;
   const innerW = chartW - PAD_LEFT - PAD_RIGHT;
   const innerH = chartH - PAD_TOP - PAD_BOTTOM;
-  const safePoints = Array.isArray(points) ? points : [];
+  const safePoints = (Array.isArray(points) ? points : []).filter(
+    (point) => Number.isFinite(point?.value) && point.value > 0,
+  );
 
   if (safePoints.length === 0) {
     return (
@@ -47,16 +49,23 @@ export default function WeightProgressChart({
 
   const { min, max } = getNiceBounds(safePoints);
   const range = max - min || 1;
-  const stepX = safePoints.length === 1 ? 0 : innerW / (safePoints.length - 1);
+  const timestamps = safePoints.map((point, index) =>
+    Number.isFinite(point.timestamp) ? point.timestamp : index,
+  );
+  const minTime = Math.min(...timestamps);
+  const maxTime = Math.max(...timestamps);
+  const timeRange = maxTime - minTime || 1;
 
   const svgPoints = safePoints.map((point, index) => {
-    const x = PAD_LEFT + stepX * index;
+    const t = timestamps[index];
+    const xRatio = safePoints.length === 1 ? 0.5 : (t - minTime) / timeRange;
+    const x = PAD_LEFT + xRatio * innerW;
     const normalized = (point.value - min) / range;
     const y = PAD_TOP + innerH - normalized * innerH;
     return { x, y, label: point.label, value: point.value };
   });
 
-  const polylinePoints = svgPoints.map((point) => `${point.x},${point.y}`).join(' ');
+  const strokeColor = lineColor || '#6366F1';
   const yTicks = [max, min + (max - min) * 0.5, min];
 
   return (
@@ -84,27 +93,34 @@ export default function WeightProgressChart({
         })}
 
         {safePoints.length > 1 ? (
-          <Polyline
-            points={polylinePoints}
-            fill="none"
-            stroke={lineColor}
-            strokeWidth={2.2}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-          />
+          svgPoints.slice(1).map((point, index) => {
+            const prev = svgPoints[index];
+            return (
+              <Line
+                key={`seg-${index}`}
+                x1={prev.x}
+                y1={prev.y}
+                x2={point.x}
+                y2={point.y}
+                stroke={strokeColor}
+                strokeWidth={2.2}
+                strokeLinecap="round"
+              />
+            );
+          })
         ) : (
           <Line
             x1={svgPoints[0].x - 0.1}
             y1={svgPoints[0].y}
             x2={svgPoints[0].x + 0.1}
             y2={svgPoints[0].y}
-            stroke={lineColor}
+            stroke={strokeColor}
             strokeWidth={2.2}
           />
         )}
 
         {svgPoints.map((point, index) => (
-          <Circle key={`p-${index}`} cx={point.x} cy={point.y} r={3.2} fill={pointColor || lineColor} />
+          <Circle key={`p-${index}`} cx={point.x} cy={point.y} r={3.2} fill={pointColor || strokeColor} />
         ))}
 
         {svgPoints.map((point, index) => {

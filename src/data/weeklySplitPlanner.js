@@ -242,3 +242,209 @@ export function getSplitWeekWorkoutProgress(plan, workoutHistory, referenceDate 
 
   return { completed, target };
 }
+
+/** @typedef {{ type: string; mixedMuscles: string[] }} SplitDayEntry */
+
+/** @typedef {{ id: string; trainingDays: number; label: string; description: string; scheduleLabel: string; days: SplitDayEntry[] }} WeeklySplitPreset */
+
+const REST_DAY = { type: 'rest', mixedMuscles: [] };
+
+/** @param {string} type */
+function trainingDay(type) {
+  return { type, mixedMuscles: [] };
+}
+
+/** @param {SplitDayEntry[]} days */
+function weekFromDays(days) {
+  const padded = [...days];
+  while (padded.length < 7) padded.push(REST_DAY);
+  return padded.slice(0, 7);
+}
+
+/** @type {WeeklySplitPreset[]} */
+export const WEEKLY_SPLIT_PRESETS = [
+  {
+    id: 'full_1',
+    trainingDays: 1,
+    label: 'Full body',
+    description: 'One full-body session per week',
+    scheduleLabel: 'Wed',
+    days: weekFromDays([REST_DAY, REST_DAY, trainingDay('full'), REST_DAY, REST_DAY, REST_DAY, REST_DAY]),
+  },
+  {
+    id: 'upper_lower_2',
+    trainingDays: 2,
+    label: 'Upper / Lower',
+    description: 'Alternate upper and lower body',
+    scheduleLabel: 'Mon · Thu',
+    days: weekFromDays([trainingDay('upper'), REST_DAY, REST_DAY, trainingDay('lower'), REST_DAY, REST_DAY, REST_DAY]),
+  },
+  {
+    id: 'ppl_3',
+    trainingDays: 3,
+    label: 'Push / Pull / Legs',
+    description: 'Classic 3-day split',
+    scheduleLabel: 'Mon · Wed · Fri',
+    days: weekFromDays([trainingDay('push'), REST_DAY, trainingDay('pull'), REST_DAY, trainingDay('legs'), REST_DAY, REST_DAY]),
+  },
+  {
+    id: 'full_3',
+    trainingDays: 3,
+    label: 'Full body (3×)',
+    description: 'Three full-body sessions',
+    scheduleLabel: 'Mon · Wed · Fri',
+    days: weekFromDays([trainingDay('full'), REST_DAY, trainingDay('full'), REST_DAY, trainingDay('full'), REST_DAY, REST_DAY]),
+  },
+  {
+    id: 'upper_lower_4',
+    trainingDays: 4,
+    label: 'Upper / Lower (2×)',
+    description: 'Two upper and two lower days',
+    scheduleLabel: 'Mon · Tue · Thu · Fri',
+    days: weekFromDays([
+      trainingDay('upper'),
+      trainingDay('lower'),
+      REST_DAY,
+      trainingDay('upper'),
+      trainingDay('lower'),
+      REST_DAY,
+      REST_DAY,
+    ]),
+  },
+  {
+    id: 'ppl_upper_4',
+    trainingDays: 4,
+    label: 'Push / Pull / Legs / Upper',
+    description: 'PPL plus an extra upper day',
+    scheduleLabel: 'Mon · Tue · Wed · Fri',
+    days: weekFromDays([
+      trainingDay('push'),
+      trainingDay('pull'),
+      trainingDay('legs'),
+      REST_DAY,
+      trainingDay('upper'),
+      REST_DAY,
+      REST_DAY,
+    ]),
+  },
+  {
+    id: 'ppl_upper_lower_5',
+    trainingDays: 5,
+    label: 'Push / Pull / Legs / Upper / Lower',
+    description: 'One session per major focus',
+    scheduleLabel: 'Mon · Tue · Wed · Thu · Fri',
+    days: weekFromDays([
+      trainingDay('push'),
+      trainingDay('pull'),
+      trainingDay('legs'),
+      trainingDay('upper'),
+      trainingDay('lower'),
+      REST_DAY,
+      REST_DAY,
+    ]),
+  },
+  {
+    id: 'ppl_6',
+    trainingDays: 6,
+    label: 'Push / Pull / Legs (2×)',
+    description: 'PPL repeated twice',
+    scheduleLabel: 'Mon · Tue · Wed · Thu · Fri · Sat',
+    days: weekFromDays([
+      trainingDay('push'),
+      trainingDay('pull'),
+      trainingDay('legs'),
+      trainingDay('push'),
+      trainingDay('pull'),
+      trainingDay('legs'),
+      REST_DAY,
+    ]),
+  },
+  {
+    id: 'daily_rotation_7',
+    trainingDays: 7,
+    label: 'Daily rotation',
+    description: 'Train every day with a rotating focus',
+    scheduleLabel: 'Mon · Tue · Wed · Thu · Fri · Sat · Sun',
+    days: weekFromDays([
+      trainingDay('push'),
+      trainingDay('pull'),
+      trainingDay('legs'),
+      trainingDay('upper'),
+      trainingDay('lower'),
+      trainingDay('full'),
+      trainingDay('push'),
+    ]),
+  },
+];
+
+export const TRAINING_DAYS_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
+
+const PRESET_BY_ID = new Map(WEEKLY_SPLIT_PRESETS.map((p) => [p.id, p]));
+
+/**
+ * @param {number} count
+ * @returns {WeeklySplitPreset[]}
+ */
+export function getPresetsForTrainingDays(count) {
+  return WEEKLY_SPLIT_PRESETS.filter((p) => p.trainingDays === count);
+}
+
+/**
+ * @param {string} presetId
+ * @returns {{ days: SplitDayEntry[] }}
+ */
+export function buildPlanFromPreset(presetId) {
+  const preset = PRESET_BY_ID.get(presetId);
+  if (!preset) return getDefaultWeeklySplitPlan();
+  return normalizeWeeklySplitPlan({ days: preset.days.map((d) => ({ ...d, mixedMuscles: [...d.mixedMuscles] })) });
+}
+
+/**
+ * @param {{ days: SplitDayEntry[] } | null | undefined} plan
+ * @returns {string[]}
+ */
+export function getTrainingDayTypeSequence(plan) {
+  if (!plan?.days) return [];
+  const seq = [];
+  for (let i = 0; i < plan.days.length; i += 1) {
+    const d = plan.days[i];
+    if (!isSplitPlanTrainingDay(d)) continue;
+    if (d.type === 'mixed') seq.push(`mixed:${[...(d.mixedMuscles ?? [])].sort().join(',')}`);
+    else seq.push(d.type);
+  }
+  return seq;
+}
+
+/**
+ * @param {{ days: SplitDayEntry[] } | null | undefined} a
+ * @param {{ days: SplitDayEntry[] } | null | undefined} b
+ * @returns {boolean}
+ */
+function weeklySplitPlansMatch(a, b) {
+  const normA = normalizeWeeklySplitPlan(a);
+  const normB = normalizeWeeklySplitPlan(b);
+  for (let i = 0; i < 7; i += 1) {
+    const da = normA.days[i];
+    const db = normB.days[i];
+    if (da.type !== db.type) return false;
+    if (da.type === 'mixed') {
+      const am = [...da.mixedMuscles].sort().join(',');
+      const bm = [...db.mixedMuscles].sort().join(',');
+      if (am !== bm) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * @param {{ days: SplitDayEntry[] } | null | undefined} plan
+ * @returns {string | null}
+ */
+export function detectPresetFromPlan(plan) {
+  if (!plan?.days) return null;
+  for (let i = 0; i < WEEKLY_SPLIT_PRESETS.length; i += 1) {
+    const preset = WEEKLY_SPLIT_PRESETS[i];
+    if (weeklySplitPlansMatch(plan, { days: preset.days })) return preset.id;
+  }
+  return null;
+}

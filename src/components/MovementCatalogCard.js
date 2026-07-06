@@ -1,9 +1,9 @@
 import React, { memo, useMemo } from 'react';
+import { useStyles } from '../app/context/ThemeStylesContext';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { isFavoriteMovement } from '../utils/movementFavorites';
 import { formatRecentSetLine, getMovementMaxDisplay } from '../utils/movementSetHistory';
 import { getHighlightChipForMovement } from '../utils/splitDayHighlightIcons';
-import { styles } from '../styles';
 
 /**
  * @param {{
@@ -14,6 +14,7 @@ import { styles } from '../styles';
  * }} props
  */
 function MovementCatalogCard({ row, exerciseLookup, favoriteMovements, onToggleFavorite }) {
+  const styles = useStyles();
   const favorited = isFavoriteMovement(favoriteMovements, row.movement);
   const maxDisplay = row.summary ? getMovementMaxDisplay(row.summary, exerciseLookup) : null;
   const muscleChip = useMemo(

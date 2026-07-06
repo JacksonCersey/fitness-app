@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
+import { useStyles } from '../app/context/ThemeStylesContext';
 import { Keyboard, Modal, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { styles } from '../styles';
 
 function MainTabsWeightLogModal({
   colors,
@@ -27,6 +27,7 @@ function MainTabsWeightLogModal({
   weightDatePickerYearOptions,
   applyWeightDatePickerSelection,
 }) {
+  const styles = useStyles();
   return (
     <Modal
       transparent

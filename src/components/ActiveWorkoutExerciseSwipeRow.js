@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useRef } from 'react';
+import { useStyles } from '../app/context/ThemeStylesContext';
 import { Animated, Image, PanResponder, Text, TouchableOpacity, View } from 'react-native';
-import { styles } from '../styles';
 
 const DELETE_REVEAL_WIDTH = 80;
 
@@ -12,6 +12,7 @@ function ActiveWorkoutExerciseSwipeRow({
   onOpen,
   onRequestDelete,
 }) {
+  const styles = useStyles();
   const translateX = useRef(new Animated.Value(0)).current;
   const dragStartX = useRef(0);
   const isOpenRef = useRef(false);

@@ -265,6 +265,55 @@ export function getMovementMaxDisplay(row, exerciseLookup) {
  * @param {Record<string, { bodyweightOnly?: boolean }>} exerciseLookup
  * @returns {string}
  */
+/**
+ * All past sets for one exercise from saved workouts, newest first.
+ * @param {string} exerciseName
+ * @param {unknown[]} workoutHistory
+ * @param {number} [limit]
+ * @returns {MovementSetRecord[]}
+ */
+export function getPastSetsForMovementName(exerciseName, workoutHistory, limit = 40) {
+  const key = String(exerciseName || '').trim().toLowerCase();
+  if (!key || !Array.isArray(workoutHistory) || workoutHistory.length === 0) return [];
+
+  /** @type {MovementSetRecord[]} */
+  const all = [];
+
+  const workoutsNewestFirst = [...workoutHistory]
+    .filter((w) => w?.completedAt && w.setsByMovement && typeof w.setsByMovement === 'object')
+    .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
+
+  for (let w = 0; w < workoutsNewestFirst.length; w += 1) {
+    const workout = workoutsNewestFirst[w];
+    const completedAtISO = workout.completedAt;
+    const baseTime = new Date(completedAtISO).getTime();
+    if (Number.isNaN(baseTime)) continue;
+
+    const map = workout.setsByMovement;
+    const movementNames = Object.keys(map);
+    for (let m = 0; m < movementNames.length; m += 1) {
+      const movement = movementNames[m];
+      if (movement.trim().toLowerCase() !== key) continue;
+      const sets = map[movement];
+      if (!Array.isArray(sets)) continue;
+      for (let s = 0; s < sets.length; s += 1) {
+        const setItem = sets[s];
+        const reps = Number(setItem?.reps) || 0;
+        if (reps <= 0) continue;
+        all.push({
+          movement,
+          reps,
+          weightLb: Number(setItem?.weight) || 0,
+          completedAtISO,
+          sortKey: baseTime + s,
+        });
+      }
+    }
+  }
+
+  return all.sort((a, b) => b.sortKey - a.sortKey).slice(0, limit);
+}
+
 export function formatRecentSetLine(setRecord, movementName, exerciseLookup) {
   const bw = isBodyweightOnlyExercise(movementName, exerciseLookup);
   const reps = setRecord.reps;
