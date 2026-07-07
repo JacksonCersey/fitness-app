@@ -3,59 +3,10 @@ import { Alert, Animated, SafeAreaView, ScrollView, Text, TouchableOpacity, View
 import { useAppStorage } from '../app/context/AppStorageContext';
 import { useGameTheme, useStyles } from '../app/context/ThemeStylesContext';
 
-function ThemePreviewCard({ label, description, selected, onPress, previewColors }) {
-  const styles = useStyles();
-  return (
-    <TouchableOpacity
-      style={[
-        styles.profileCard,
-        {
-          backgroundColor: previewColors.cardBg,
-          borderColor: selected ? previewColors.accent : previewColors.border,
-          borderWidth: selected ? 2 : 1,
-        },
-      ]}
-      onPress={onPress}
-      activeOpacity={0.85}
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      accessibilityLabel={`${label} theme`}>
-      <View
-        style={{
-          height: 48,
-          borderRadius: 12,
-          backgroundColor: previewColors.screenBg,
-          marginBottom: 12,
-          borderWidth: 1,
-          borderColor: previewColors.border,
-        }}
-      />
-      <View
-        style={{
-          height: 14,
-          width: '70%',
-          borderRadius: 7,
-          backgroundColor: previewColors.accent,
-          marginBottom: 8,
-        }}
-      />
-      <Text style={[styles.menuMoreLinkTitle, { color: previewColors.text }]}>{label}</Text>
-      <Text style={[styles.menuMoreLinkSubtitle, { color: previewColors.muted }]}>{description}</Text>
-      {selected ? (
-        <Text style={[styles.menuMoreLinkSubtitle, { color: previewColors.accent, marginTop: 8, fontWeight: '700' }]}>
-          Selected
-        </Text>
-      ) : null}
-    </TouchableOpacity>
-  );
-}
-
 function AppearanceScreen({ screenTransitionOpacity, onBack }) {
   const styles = useStyles();
   const theme = useGameTheme();
   const {
-    theme: themePreference,
-    setTheme,
     resetAllUserData,
     activeDevUserId,
     devUserOptions,
@@ -104,40 +55,6 @@ function AppearanceScreen({ screenTransitionOpacity, onBack }) {
           </View>
 
           <Text style={[styles.menuMoreBodyText, { marginBottom: 16 }]}>
-            Choose a look that is easier on your eyes. Accent colors stay the same in both themes.
-          </Text>
-
-          <ThemePreviewCard
-            label="Light"
-            description="Bright candy backgrounds"
-            selected={themePreference === 'light'}
-            onPress={() => setTheme('light')}
-            previewColors={{
-              screenBg: '#F4F9FF',
-              cardBg: '#FFFFFF',
-              accent: '#FF6B35',
-              border: 'rgba(56, 189, 248, 0.35)',
-              text: '#1E293B',
-              muted: '#64748B',
-            }}
-          />
-
-          <ThemePreviewCard
-            label="Dark"
-            description="Same colors, darker surfaces"
-            selected={themePreference === 'dark'}
-            onPress={() => setTheme('dark')}
-            previewColors={{
-              screenBg: '#1A2332',
-              cardBg: '#243044',
-              accent: '#FF6B35',
-              border: 'rgba(56, 189, 248, 0.3)',
-              text: '#F1F5F9',
-              muted: '#94A3B8',
-            }}
-          />
-
-          <Text style={[styles.menuMoreBodyText, { marginTop: 28, marginBottom: 12 }]}>
             Testing or starting over
           </Text>
           <TouchableOpacity

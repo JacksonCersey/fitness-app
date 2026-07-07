@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
-import { GAME_THEME_LIGHT } from '../theme/gameTheme';
+import { GAME_THEME_DARK } from '../theme/gameTheme';
 
-/** @param {typeof GAME_THEME_LIGHT} theme */
+/** @param {typeof GAME_THEME_DARK} theme */
 export function createHomeDashboardStyles(theme) {
   return {
     homeScreenScrollWrap: {
@@ -490,19 +490,8 @@ export function createHomeDashboardStyles(theme) {
       justifyContent: 'center',
       alignItems: 'center',
       gap: 6,
+      paddingTop: 8,
       paddingBottom: 10,
-    },
-    homeCarouselDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: theme.barMuted,
-    },
-    homeCarouselDotActive: {
-      backgroundColor: theme.navAccent,
-      width: 8,
-      height: 8,
-      borderRadius: 4,
     },
     homeMovementSection: {
       gap: 10,
@@ -677,4 +666,4 @@ export function createHomeDashboardStyles(theme) {
   };
 }
 
-export default createHomeDashboardStyles(GAME_THEME_LIGHT);
+export default createHomeDashboardStyles(GAME_THEME_DARK);

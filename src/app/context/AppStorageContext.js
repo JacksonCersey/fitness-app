@@ -11,7 +11,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 import { buildExerciseLookup, EXERCISE_DATABASE } from '../../../data/exerciseDatabase';
 import {
-  THEME_STORAGE_KEY,
   PROFILE_NAME_STORAGE_KEY,
   PROFILE_BODY_STORAGE_KEY,
   WEEKLY_SPLIT_PLAN_STORAGE_KEY,
@@ -21,6 +20,7 @@ import {
 import { getDevUserOptions } from '../../data/devFixtures/devUsers';
 import { computeStrengthScoreSummary } from '../../data/strengthScore';
 import {
+  computeAllTimeScheduledDayAdherence,
   getDefaultWeeklySplitPlan,
   getSplitWeekWorkoutProgress,
   normalizeWeeklySplitPlan,
@@ -75,8 +75,6 @@ export function useAppStorage() {
 }
 
 export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
-  const [theme, setTheme] = useState('dark');
-  const [hasLoadedTheme, setHasLoadedTheme] = useState(false);
   const [profileName, setProfileName] = useState('');
   const [profileNameDraft, setProfileNameDraft] = useState('');
   const [profileHeightIn, setProfileHeightIn] = useState(null);
@@ -143,7 +141,6 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
     hasLoadedHistory &&
     hasLoadedWeightLogs &&
     hasLoadedWeeklySplitPlan &&
-    hasLoadedTheme &&
     hasLoadedProfile;
 
   const exerciseLookup = useMemo(() => buildExerciseLookup(EXERCISE_DATABASE), []);
@@ -157,8 +154,7 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
     [workoutHistory, exerciseLookup],
   );
 
-  const isLightTheme = theme === 'light';
-  const colors = useMemo(() => getAppThemeColors(isLightTheme), [isLightTheme]);
+  const colors = useMemo(() => getAppThemeColors(), []);
 
   useEffect(() => {
     if (!storageBootstrapDone || !devUserContextReady) return;
@@ -250,25 +246,6 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
 
     loadWeeklySplitPlan();
   }, [storageBootstrapDone, devUserContextReady]);
-
-  useEffect(() => {
-    if (!storageBootstrapDone) return;
-
-    async function loadThemePreference() {
-      try {
-        const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
-        if (savedTheme === 'light' || savedTheme === 'dark') {
-          setTheme(savedTheme);
-        }
-      } catch (error) {
-        console.warn('Failed to load theme preference', error);
-      } finally {
-        setHasLoadedTheme(true);
-      }
-    }
-
-    loadThemePreference();
-  }, [storageBootstrapDone]);
 
   useEffect(() => {
     if (!storageBootstrapDone || !devUserContextReady) return;
@@ -416,20 +393,6 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
     persistWeeklySplitPlan();
   }, [weeklySplitPlan, hasLoadedWeeklySplitPlan]);
 
-  useEffect(() => {
-    if (!hasLoadedTheme) return;
-
-    async function persistThemePreference() {
-      try {
-        await AsyncStorage.setItem(THEME_STORAGE_KEY, theme);
-      } catch (error) {
-        console.warn('Failed to save theme preference', error);
-      }
-    }
-
-    persistThemePreference();
-  }, [theme, hasLoadedTheme]);
-
   const weeklyStreakDays = useMemo(() => {
     const labels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
     const now = new Date();
@@ -472,6 +435,11 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
     }
     return { completed: weeklyWorkoutsLoggedCount, target: 7 };
   }, [weeklySplitPlan, workoutHistory, weeklyWorkoutsLoggedCount]);
+
+  const scheduledDayAdherence = useMemo(
+    () => computeAllTimeScheduledDayAdherence(weeklySplitPlan, workoutHistory),
+    [weeklySplitPlan, workoutHistory],
+  );
 
   const consecutiveTrainingWeekStreak = useMemo(
     () => computeConsecutiveTrainingWeekStreak(workoutHistory),
@@ -686,7 +654,6 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
   const resetAllUserData = useCallback(async () => {
     await clearAllUserData();
     strengthScorePersistedRef.current = null;
-    setTheme('light');
     setProfileName('');
     setProfileNameDraft('');
     setProfileHeightIn(null);
@@ -882,9 +849,6 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
 
   const value = useMemo(
     () => ({
-      theme,
-      setTheme,
-      isLightTheme,
       colors,
       profileName,
       profileNameDraft,
@@ -913,6 +877,7 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
       weeklyStreakDays,
       weeklyWorkoutsLoggedCount,
       menuWeekGymProgress,
+      scheduledDayAdherence,
       consecutiveTrainingWeekStreak,
       consecutivePerfectWeekStreak,
       strengthScoreSummary,
@@ -937,8 +902,6 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
       addWeightLogEntry,
     }),
     [
-      theme,
-      isLightTheme,
       colors,
       profileName,
       profileNameDraft,
@@ -959,6 +922,7 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
       weeklyStreakDays,
       weeklyWorkoutsLoggedCount,
       menuWeekGymProgress,
+      scheduledDayAdherence,
       consecutiveTrainingWeekStreak,
       consecutivePerfectWeekStreak,
       strengthScoreSummary,

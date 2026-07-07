@@ -243,6 +243,65 @@ export function getSplitWeekWorkoutProgress(plan, workoutHistory, referenceDate 
   return { completed, target };
 }
 
+/**
+ * All-time scheduled-day adherence: total hit training days ÷ total planned training days
+ * across every Sun–Sat week from the first logged workout week through the reference week.
+ * Uses the current split plan for all historical weeks.
+ *
+ * @param {{ days: { type: string; mixedMuscles?: string[] }[] }} plan
+ * @param {unknown[]} workoutHistory
+ * @param {Date} [referenceDate]
+ * @returns {{ completed: number; target: number; rate: number | null }}
+ */
+export function computeAllTimeScheduledDayAdherence(
+  plan,
+  workoutHistory,
+  referenceDate = new Date(),
+) {
+  if (!weeklySplitPlanIsConfigured(plan)) {
+    return { completed: 0, target: 0, rate: null };
+  }
+
+  let earliestWorkoutMs = null;
+  if (Array.isArray(workoutHistory)) {
+    for (let i = 0; i < workoutHistory.length; i += 1) {
+      const w = workoutHistory[i];
+      if (!w || typeof w !== 'object' || !w.completedAt) continue;
+      const t = new Date(w.completedAt).getTime();
+      if (Number.isNaN(t)) continue;
+      if (earliestWorkoutMs == null || t < earliestWorkoutMs) {
+        earliestWorkoutMs = t;
+      }
+    }
+  }
+
+  if (earliestWorkoutMs == null) {
+    return { completed: 0, target: 0, rate: 0 };
+  }
+
+  const firstWeekSunday = getSundayStartOfWeekLocal(new Date(earliestWorkoutMs));
+  const currentWeekSunday = getSundayStartOfWeekLocal(referenceDate);
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+
+  let completed = 0;
+  let target = 0;
+  for (
+    let weekStartMs = firstWeekSunday.getTime();
+    weekStartMs <= currentWeekSunday.getTime();
+    weekStartMs += msPerWeek
+  ) {
+    const progress = getSplitWeekWorkoutProgress(plan, workoutHistory, new Date(weekStartMs));
+    completed += progress.completed;
+    target += progress.target;
+  }
+
+  return {
+    completed,
+    target,
+    rate: target > 0 ? completed / target : 0,
+  };
+}
+
 /** @typedef {{ type: string; mixedMuscles: string[] }} SplitDayEntry */
 
 /** @typedef {{ id: string; trainingDays: number; label: string; description: string; scheduleLabel: string; days: SplitDayEntry[] }} WeeklySplitPreset */

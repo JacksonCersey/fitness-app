@@ -1,4 +1,9 @@
-import { getDefaultWeeklySplitPlan } from '../weeklySplitPlanner';
+import {
+  calendarDateForPlanIndexInSunWeek,
+  getDefaultWeeklySplitPlan,
+  isSplitPlanTrainingDay,
+} from '../weeklySplitPlanner';
+import { getSundayStartOfWeekLocal } from '../../utils/weeklyPplSetTotals';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -51,6 +56,70 @@ function buildWeeklyStreakWorkouts(weekCount) {
       ),
     );
   }
+  return workouts;
+}
+
+const SETS_BY_SPLIT_TYPE = {
+  push: {
+    'Bench Press': [{ reps: 8, weight: 165, elapsedSeconds: 60 }],
+    'Overhead Press': [{ reps: 6, weight: 95, elapsedSeconds: 55 }],
+  },
+  pull: {
+    'Pull Up': [{ reps: 8, weight: 0, elapsedSeconds: 50 }],
+    'Barbell Row': [{ reps: 8, weight: 135, elapsedSeconds: 65 }],
+  },
+  legs: {
+    Squat: [{ reps: 5, weight: 205, elapsedSeconds: 90 }],
+    'Leg Press': [{ reps: 10, weight: 300, elapsedSeconds: 75 }],
+  },
+};
+
+function workoutOnCalendarDay(id, dayDate, setsByMovement, elapsedSeconds = 3600) {
+  const completedAt = new Date(dayDate);
+  completedAt.setHours(10, 30, 0, 0);
+  return {
+    id,
+    completedAt: completedAt.toISOString(),
+    setsByMovement,
+    elapsedSeconds,
+  };
+}
+
+/**
+ * Workouts on every scheduled split training day for `closedWeekCount` full Sun–Sat weeks
+ * (plus any training days completed in the current week through today).
+ */
+function buildPerfectStreakWorkouts(closedWeekCount, split = getPushPullLegsSplit()) {
+  const workouts = [];
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const currentSunday = getSundayStartOfWeekLocal(now);
+
+  for (let weekBack = 1; weekBack <= closedWeekCount; weekBack += 1) {
+    const weekStart = new Date(currentSunday);
+    weekStart.setDate(currentSunday.getDate() - weekBack * 7);
+
+    for (let planIndex = 0; planIndex < 7; planIndex += 1) {
+      const entry = split.days[planIndex];
+      if (!isSplitPlanTrainingDay(entry)) continue;
+      const dayDate = calendarDateForPlanIndexInSunWeek(weekStart, planIndex);
+      const sets = SETS_BY_SPLIT_TYPE[entry.type] ?? SETS_BY_SPLIT_TYPE.push;
+      workouts.push(
+        workoutOnCalendarDay(`perfect-w${weekBack}-d${planIndex}`, dayDate, sets, 3000 + weekBack * 30),
+      );
+    }
+  }
+
+  for (let planIndex = 0; planIndex < 7; planIndex += 1) {
+    const entry = split.days[planIndex];
+    if (!isSplitPlanTrainingDay(entry)) continue;
+    const dayDate = calendarDateForPlanIndexInSunWeek(currentSunday, planIndex);
+    if (dayDate.getTime() > today.getTime()) continue;
+    const sets = SETS_BY_SPLIT_TYPE[entry.type] ?? SETS_BY_SPLIT_TYPE.push;
+    workouts.push(workoutOnCalendarDay(`perfect-current-d${planIndex}`, dayDate, sets, 2700));
+  }
+
   return workouts;
 }
 
@@ -120,6 +189,10 @@ const DEV_USER_META = {
   streak: {
     label: '12-week streak',
     description: 'Consistent weekly training for streak UI',
+  },
+  perfect: {
+    label: 'Perfect streak',
+    description: 'Every scheduled split day hit — perfect week streak UI',
   },
   history: {
     label: 'Long history',
@@ -219,6 +292,18 @@ const DEV_USER_BUILDERS = {
     weightLogs: [makeWeightLog('str-w1', 84, 182), makeWeightLog('str-w2', 0, 179)],
     weeklySplitPlan: getPushPullLegsSplit(),
     favoriteMovements: ['bench press'],
+    onboardingComplete: true,
+    strengthScoreDisplayed: null,
+  }),
+
+  perfect: () => ({
+    profileName: 'Casey',
+    profileHeightIn: 71,
+    profileGoalWeightLb: 185,
+    workoutHistory: buildPerfectStreakWorkouts(8),
+    weightLogs: [makeWeightLog('perf-w1', 56, 181), makeWeightLog('perf-w2', 0, 183)],
+    weeklySplitPlan: getPushPullLegsSplit(),
+    favoriteMovements: ['bench press', 'squat', 'pull up'],
     onboardingComplete: true,
     strengthScoreDisplayed: null,
   }),

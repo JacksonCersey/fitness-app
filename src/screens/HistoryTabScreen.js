@@ -7,6 +7,7 @@ import WeightProgressChart from '../../components/WeightProgressChart';
 import StrengthScoreCard from '../components/StrengthScoreCard';
 import ProgressStrengthScoreOverview from '../components/progress/ProgressStrengthScoreOverview';
 import ProgressOverviewStreakPanel from '../components/progress/ProgressOverviewStreakPanel';
+import ProgressOverviewAdherencePanel from '../components/progress/ProgressOverviewAdherencePanel';
 
 const PROGRESS_SECTIONS = [
   { id: 'overview', label: 'Overview' },
@@ -41,6 +42,9 @@ function HistoryTabScreen({
   workoutHistory,
   strengthScoreSummary,
   consecutiveTrainingWeekStreak,
+  scheduledDayAdherence,
+  consecutivePerfectWeekStreak,
+  lifetimeVolumeLb,
   onOpenStrengthMovements,
   onOpenDayWorkouts,
 }) {
@@ -58,10 +62,7 @@ function HistoryTabScreen({
     return `${month}/${historyCalendarYear}`;
   }, [historyCalendarMonth, historyCalendarYear]);
   return (
-    <View style={[styles.menuBody, styles.historyProgressBody]}>
-      <View style={styles.menuGradientTopGlow} pointerEvents="none" />
-      <View style={styles.menuGradientBottomGlow} pointerEvents="none" />
-
+    <View style={[styles.menuHomeShell, styles.historyProgressBody]}>
       <View style={styles.historyProgressSegmentBar} accessibilityRole="tablist">
         {PROGRESS_SECTIONS.map((section) => {
           const isActive = historyProgressSection === section.id;
@@ -121,6 +122,13 @@ function HistoryTabScreen({
               textMuted={theme.textMuted}
               accentSolid={theme.navAccent}
               today={new Date()}
+            />
+
+            <ProgressOverviewAdherencePanel
+              adherence={scheduledDayAdherence}
+              workoutHistory={workoutHistory}
+              consecutivePerfectWeekStreak={consecutivePerfectWeekStreak}
+              lifetimeVolumeLb={lifetimeVolumeLb ?? 0}
             />
           </>
         ) : null}

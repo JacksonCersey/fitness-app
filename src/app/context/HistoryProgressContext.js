@@ -5,6 +5,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { Alert, Keyboard } from 'react-native';
@@ -13,6 +14,7 @@ import {
   buildYearlyMonthlyVolume,
   getDaysInMonth,
 } from '../../../utils/workoutStats';
+import { getWorkoutsForCalendarDay } from '../../utils/historicalWorkoutSummary';
 import { useAppStorage } from './AppStorageContext';
 import { useAppNavigation } from './AppNavigationContext';
 import { shouldUseMoreHubSlideTransition } from '../../constants/layout';
@@ -40,6 +42,8 @@ export function HistoryProgressProvider({ children, onReturnFromSubscreenRef }) 
   const [historyChartMode, setHistoryChartMode] = useState('month');
   const [historyProgressSection, setHistoryProgressSection] = useState('overview');
   const [historyDayPick, setHistoryDayPick] = useState(null);
+  const [viewingHistoricalWorkoutId, setViewingHistoricalWorkoutId] = useState(null);
+  const historicalSummaryReturnRef = useRef('history');
   const [isWeightLogModalVisible, setIsWeightLogModalVisible] = useState(false);
   const [weightLogDraftValue, setWeightLogDraftValue] = useState('');
   const [weightLogDraftDate, setWeightLogDraftDate] = useState('');
@@ -151,21 +155,10 @@ export function HistoryProgressProvider({ children, onReturnFromSubscreenRef }) 
   const historyChartMax =
     historyChartMode === 'year' ? yearlyVolumeStats.maxVolume : monthlyVolumeStats.maxVolume;
 
-  const workoutsForHistoryDay = useMemo(() => {
-    if (!historyDayPick) return [];
-    return workoutHistory
-      .filter((workoutItem) => {
-        if (!workoutItem?.completedAt) return false;
-        const t = new Date(workoutItem.completedAt);
-        if (Number.isNaN(t.getTime())) return false;
-        return (
-          t.getFullYear() === historyDayPick.y &&
-          t.getMonth() === historyDayPick.m &&
-          t.getDate() === historyDayPick.d
-        );
-      })
-      .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
-  }, [workoutHistory, historyDayPick]);
+  const workoutsForHistoryDay = useMemo(
+    () => getWorkoutsForCalendarDay(workoutHistory, historyDayPick),
+    [workoutHistory, historyDayPick],
+  );
 
   const historyDayScreenTitle = useMemo(() => {
     if (!historyDayPick) return '';
@@ -368,12 +361,38 @@ export function HistoryProgressProvider({ children, onReturnFromSubscreenRef }) 
     startTransition(() => setCurrentScreen('history'));
   }, [setCurrentScreen, subNavigatorReturnRef]);
 
-  const handleOpenHistoryDayDetail = useCallback(
-    (pick) => {
-      setHistoryDayPick({ y: pick.y, m: pick.m, d: pick.d });
-      setCurrentScreen('historyDay');
+  const handleOpenHistoricalWorkoutSummary = useCallback(
+    (workoutId, returnTo = 'history') => {
+      historicalSummaryReturnRef.current = returnTo;
+      setViewingHistoricalWorkoutId(workoutId);
+      setCurrentScreen('historicalWorkoutSummary');
     },
     [setCurrentScreen],
+  );
+
+  const handleCloseHistoricalWorkoutSummary = useCallback(() => {
+    const returnTo = historicalSummaryReturnRef.current;
+    setViewingHistoricalWorkoutId(null);
+    if (returnTo === 'historyDay') {
+      setCurrentScreen('historyDay');
+      return;
+    }
+    setHistoryDayPick(null);
+    setCurrentScreen('history');
+  }, [setCurrentScreen]);
+
+  const handleOpenHistoryDayDetail = useCallback(
+    (pick) => {
+      const dayPick = { y: pick.y, m: pick.m, d: pick.d };
+      const dayWorkouts = getWorkoutsForCalendarDay(workoutHistory, dayPick);
+      setHistoryDayPick(dayPick);
+      if (dayWorkouts.length === 1) {
+        handleOpenHistoricalWorkoutSummary(dayWorkouts[0].id, 'history');
+        return;
+      }
+      setCurrentScreen('historyDay');
+    },
+    [workoutHistory, setCurrentScreen, handleOpenHistoricalWorkoutSummary],
   );
 
   const handleCloseHistoryDayDetail = useCallback(() => {
@@ -413,6 +432,7 @@ export function HistoryProgressProvider({ children, onReturnFromSubscreenRef }) 
       setHistoryProgressSection,
       historyDayPick,
       setHistoryDayPick,
+      viewingHistoricalWorkoutId,
       isWeightLogModalVisible,
       weightLogDraftValue,
       setWeightLogDraftValue,
@@ -455,6 +475,8 @@ export function HistoryProgressProvider({ children, onReturnFromSubscreenRef }) 
       handleOpenHistoryFromMore,
       handleOpenHistoryDayDetail,
       handleCloseHistoryDayDetail,
+      handleOpenHistoricalWorkoutSummary,
+      handleCloseHistoricalWorkoutSummary,
       handleReturnFromSubscreen,
       handleOpenStrengthMovements,
     }),
@@ -466,6 +488,7 @@ export function HistoryProgressProvider({ children, onReturnFromSubscreenRef }) 
       historyChartMode,
       historyProgressSection,
       historyDayPick,
+      viewingHistoricalWorkoutId,
       isWeightLogModalVisible,
       weightLogDraftValue,
       weightLogDraftDate,
@@ -503,6 +526,8 @@ export function HistoryProgressProvider({ children, onReturnFromSubscreenRef }) 
       handleOpenHistoryFromMore,
       handleOpenHistoryDayDetail,
       handleCloseHistoryDayDetail,
+      handleOpenHistoricalWorkoutSummary,
+      handleCloseHistoricalWorkoutSummary,
       handleReturnFromSubscreen,
       handleOpenStrengthMovements,
     ],

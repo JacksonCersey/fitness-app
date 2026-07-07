@@ -15,7 +15,7 @@ const SPLIT_DAY_COLOR_MAP = {
 /**
  * Accent color for a split day type (gamified circles, chips).
  * @param {string | undefined | null} type
- * @param {import('../theme/gameTheme').GAME_THEME_DARK | import('../theme/gameTheme').GAME_THEME_LIGHT} [theme]
+ * @param {import('../theme/gameTheme').GAME_THEME_DARK} [theme]
  */
 export function getSplitDayAccentColor(type, theme = GAME_THEME_DARK) {
   const key = typeof type === 'string' ? type : 'rest';

@@ -100,7 +100,7 @@ function HomeSplitDayMuscleModal({
           />
           <BlurView
             intensity={48}
-            tint={theme.isLight ? 'light' : 'dark'}
+            tint="dark"
             style={styles.homeMuscleBubbleGlass}>
             <ScrollView
               style={styles.homeMuscleBubbleScroll}

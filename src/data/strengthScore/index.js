@@ -1,14 +1,9 @@
 /**
  * Strength Score — motivating, progression-focused user strength index.
  *
- * Future persistence (AsyncStorage / backend) suggested fields:
- * - strength_score_displayed: number (smoothed UI value)
- * - strength_score_computed_at: ISO string
- * - strength_pr_map: Record<movementKey, { bestE1Rm, dateISO }>
- * - strength_workout_scores: { workoutId, raw, final, dateISO }[]
- *
- * Anti-gaming: working-set rep cap, max per-lift contribution, max workout raw,
- * minimum gap between workouts optional (not enforced yet).
+ * Recent performance is movement-relative: bench is compared to recent bench sessions,
+ * not to deadlift sessions. The displayed score stays flat when weights are steady and
+ * only decreases after a genuinely weak workout vs recent movement averages.
  */
 
 import { getBodyweightLbAtDate, getLatestBodyweightLb } from './bodyweight';
@@ -17,20 +12,29 @@ import {
   blendOverallPillars,
   computeConsistencyPillar,
   computeLifetimePrPillar,
-  computeRecentPerformancePillar,
   computeStrengthTrendDelta,
   getStrengthLevelLabel,
   getStrengthLevelProgress,
   smoothDisplayedScore,
 } from './overallScore';
+import {
+  buildWorkoutRelativePerformanceSeries,
+  computeRelativeRecentPerformancePillar,
+  isWeakRelativePerformance,
+} from './relativePerformance';
 import { buildLifetimeBestLiftScores, computeWorkoutStrengthScore } from './workoutScore';
 import { SCORE_SCALING } from './constants';
+import { computeConsecutiveTrainingWeekStreak } from '../../utils/consecutiveWeekStreak';
 
 export { getExerciseStrengthMeta, normalizeMovementKey } from './exerciseMultipliers';
 export { estimateOneRepMax, isWorkingSet, getBestWorkingSet } from './e1rm';
 export { getRecencyMultiplier } from './recency';
 export { STRENGTH_LEVEL_BANDS } from './constants';
 export { runStrengthScoreExamples } from './examples';
+export {
+  RELATIVE_WEAK_THRESHOLD,
+  RELATIVE_STRONG_THRESHOLD,
+} from './relativePerformance';
 
 /**
  * @typedef {Object} StrengthScoreSummary
@@ -46,9 +50,54 @@ export { runStrengthScoreExamples } from './examples';
  * @property {number} consecutiveWeeks
  * @property {number} bodyweightLb
  * @property {Array<{ movement: string, bestScore: number }>} topLifetimeLifts
- * @property {number[]} recentWorkoutScores Oldest-first per-workout scores for sparkline (up to 6).
+ * @property {number[]} recentOverallScores Oldest-first overall strength scores for sparkline (up to 6).
  * @property {boolean} hasData
  */
+
+/**
+ * @param {Array<{ id?: string, completedAt?: string, setsByMovement?: Record<string, unknown[]> }>} oldestFirst
+ * @param {Array<{ dateISO?: string, weightLb?: number }>} weightLogs
+ * @param {Record<string, unknown>} exerciseLookup
+ * @param {number} consecutiveWeeks
+ * @param {number|null} previousDisplayedScore
+ * @param {boolean} allowDecrease
+ * @returns {{
+ *   overallScore: number,
+ *   recentPillar: number,
+ *   lifetimePillar: number,
+ *   consistencyPillar: number,
+ * }}
+ */
+function computeOverallFromHistory(
+  oldestFirst,
+  weightLogs,
+  exerciseLookup,
+  consecutiveWeeks,
+  previousDisplayedScore,
+  allowDecrease,
+) {
+  const getBw = (date) => getBodyweightLbAtDate(weightLogs, date);
+
+  const { meanRelative } = buildWorkoutRelativePerformanceSeries(
+    oldestFirst,
+    getBw,
+    exerciseLookup,
+  );
+
+  const lifetimeBests = buildLifetimeBestLiftScores(oldestFirst, getBw, exerciseLookup);
+  const lifetimePillar = computeLifetimePrPillar(lifetimeBests);
+  const recentPillar = computeRelativeRecentPerformancePillar(lifetimePillar, meanRelative);
+  const consistencyPillar = computeConsistencyPillar(consecutiveWeeks);
+  const rawOverall = blendOverallPillars(recentPillar, lifetimePillar, consistencyPillar);
+  const overallScore = smoothDisplayedScore(rawOverall, previousDisplayedScore, { allowDecrease });
+
+  return {
+    overallScore,
+    recentPillar,
+    lifetimePillar,
+    consistencyPillar,
+  };
+}
 
 /**
  * @param {unknown[]} workoutHistory
@@ -67,6 +116,8 @@ export function computeStrengthScoreSummary(
   referenceDate = new Date(),
   previousDisplayedScore = null,
 ) {
+  void referenceDate;
+
   const empty = {
     overallScore: 0,
     levelLabel: 'Beginner',
@@ -80,7 +131,7 @@ export function computeStrengthScoreSummary(
     consecutiveWeeks,
     bodyweightLb: getLatestBodyweightLb(weightLogs),
     topLifetimeLifts: [],
-    recentWorkoutScores: [],
+    recentOverallScores: [],
     hasData: false,
   };
 
@@ -103,6 +154,17 @@ export function computeStrengthScoreSummary(
   const newestFirst = [...oldestFirst].reverse();
 
   const { prByWorkoutId } = buildPrTimeline(oldestFirst, getBw, exerciseLookup);
+  const { lastRelative } = buildWorkoutRelativePerformanceSeries(oldestFirst, getBw, exerciseLookup);
+  const allowDecrease = isWeakRelativePerformance(lastRelative);
+
+  const current = computeOverallFromHistory(
+    oldestFirst,
+    weightLogs,
+    exerciseLookup,
+    consecutiveWeeks,
+    previousDisplayedScore,
+    allowDecrease,
+  );
 
   /** @type {Array<{ workout: object, finalScore: number, date: Date, hadPr: boolean }>} */
   const scored = [];
@@ -124,42 +186,54 @@ export function computeStrengthScoreSummary(
     });
   }
 
-  const recentPillar = computeRecentPerformancePillar(scored, referenceDate);
   const lifetimeBests = buildLifetimeBestLiftScores(oldestFirst, getBw, exerciseLookup);
-  const lifetimePillar = computeLifetimePrPillar(lifetimeBests);
-  const consistencyPillar = computeConsistencyPillar(consecutiveWeeks);
-
-  const rawOverall = blendOverallPillars(recentPillar, lifetimePillar, consistencyPillar);
-  const overallScore = Math.round(
-    smoothDisplayedScore(rawOverall, previousDisplayedScore),
-  );
-
-  const newestFirstFinalScores = scored.map((s) => s.finalScore);
-  const sparklineWindow = SCORE_SCALING.recentWorkoutWindow;
-  const recentWorkoutScores = newestFirstFinalScores
-    .slice(0, sparklineWindow)
-    .map((score) => Math.round(score * 10) / 10)
-    .reverse();
   const topLifetimeLifts = Object.values(lifetimeBests)
     .sort((a, b) => b.bestScore - a.bestScore)
     .slice(0, 4)
     .map((r) => ({ movement: r.movement, bestScore: Math.round(r.bestScore * 10) / 10 }));
 
+  const overallScoreTimeline = [];
+  let timelinePrevious = null;
+  for (let index = 0; index < oldestFirst.length; index += 1) {
+    const prefix = oldestFirst.slice(0, index + 1);
+    const prefixStreak = computeConsecutiveTrainingWeekStreak(
+      prefix,
+      new Date(oldestFirst[index].completedAt),
+    );
+    const { workoutRelatives } = buildWorkoutRelativePerformanceSeries(prefix, getBw, exerciseLookup);
+    const prefixLastRelative = workoutRelatives[workoutRelatives.length - 1] ?? 1;
+    const prefixAllowDecrease = isWeakRelativePerformance(prefixLastRelative);
+    const point = computeOverallFromHistory(
+      prefix,
+      weightLogs,
+      exerciseLookup,
+      prefixStreak,
+      timelinePrevious,
+      prefixAllowDecrease,
+    );
+    overallScoreTimeline.push(point.overallScore);
+    timelinePrevious = point.overallScore;
+  }
+
+  const sparklineWindow = SCORE_SCALING.recentWorkoutWindow;
+  const recentOverallScores = overallScoreTimeline.slice(-sparklineWindow);
+  const newestFirstOverallScores = [...overallScoreTimeline].reverse();
+
   return {
-    overallScore,
-    levelLabel: getStrengthLevelLabel(overallScore),
-    levelProgress: getStrengthLevelProgress(overallScore),
-    recentPillar: Math.round(recentPillar),
-    lifetimePillar: Math.round(lifetimePillar),
-    consistencyPillar: Math.round(consistencyPillar),
+    overallScore: current.overallScore,
+    levelLabel: getStrengthLevelLabel(current.overallScore),
+    levelProgress: getStrengthLevelProgress(current.overallScore),
+    recentPillar: Math.round(current.recentPillar),
+    lifetimePillar: Math.round(current.lifetimePillar),
+    consistencyPillar: Math.round(current.consistencyPillar),
     lastWorkoutScore:
       scored.length > 0 ? Math.round(scored[0].finalScore * 10) / 10 : null,
     lastWorkoutHadPr: scored.length > 0 ? scored[0].hadPr : false,
-    trendDelta: computeStrengthTrendDelta(newestFirstFinalScores),
+    trendDelta: computeStrengthTrendDelta(newestFirstOverallScores),
     consecutiveWeeks,
     bodyweightLb: getLatestBodyweightLb(weightLogs),
     topLifetimeLifts,
-    recentWorkoutScores,
+    recentOverallScores,
     hasData: true,
   };
 }

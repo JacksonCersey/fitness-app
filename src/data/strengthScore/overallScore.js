@@ -1,5 +1,4 @@
 import { STRENGTH_LEVEL_BANDS, OVERALL_SCORE_WEIGHTS, SCORE_SCALING, SMOOTHING } from './constants';
-import { applyRecencyToWorkoutScore } from './recency';
 
 /**
  * @param {number} score
@@ -35,8 +34,10 @@ export function getStrengthLevelProgress(score) {
  * @param {Array<{ workout: object, finalScore: number, date: Date }>} scoredWorkoutsNewestFirst
  * @param {Date} referenceDate
  * @returns {number}
+ * @deprecated Use computeRelativeRecentPerformancePillar — kept for compatibility if imported elsewhere.
  */
 export function computeRecentPerformancePillar(scoredWorkoutsNewestFirst, referenceDate) {
+  void referenceDate;
   const window = SCORE_SCALING.recentWorkoutWindow;
   const slice = scoredWorkoutsNewestFirst.slice(0, window);
   if (slice.length === 0) return 0;
@@ -45,9 +46,8 @@ export function computeRecentPerformancePillar(scoredWorkoutsNewestFirst, refere
   let weightTotal = 0;
   for (let i = 0; i < slice.length; i += 1) {
     const row = slice[i];
-    const decayed = applyRecencyToWorkoutScore(row.finalScore, row.date, referenceDate);
     const positionWeight = 1 + (window - i) * 0.08;
-    weightedSum += decayed * positionWeight;
+    weightedSum += row.finalScore * positionWeight;
     weightTotal += positionWeight;
   }
 
@@ -82,18 +82,30 @@ export function computeConsistencyPillar(consecutiveWeeks) {
 }
 
 /**
- * Gentle display smoothing so score rarely drops sharply between sessions.
+ * Display smoothing — increases blend in gradually; decreases only when allowed.
  * @param {number} computed
  * @param {number|null} previousDisplayed
+ * @param {{ allowDecrease?: boolean }} [options]
  * @returns {number}
  */
-export function smoothDisplayedScore(computed, previousDisplayed) {
+export function smoothDisplayedScore(computed, previousDisplayed, options = {}) {
+  const { allowDecrease = false } = options;
   if (previousDisplayed == null || !Number.isFinite(previousDisplayed)) {
     return computed;
   }
+
+  if (computed >= previousDisplayed) {
+    const alpha = SMOOTHING.displayEmaAlpha;
+    return Math.round(previousDisplayed * (1 - alpha) + computed * alpha);
+  }
+
+  if (!allowDecrease) {
+    return previousDisplayed;
+  }
+
   const alpha = SMOOTHING.displayEmaAlpha;
   const blended = previousDisplayed * (1 - alpha) + computed * alpha;
-  return Math.max(blended, computed * 0.97);
+  return Math.round(blended);
 }
 
 /**
@@ -111,14 +123,14 @@ export function blendOverallPillars(recent, lifetime, consistency) {
 }
 
 /**
- * Trend: compare avg of last 3 workout scores vs prior 3.
- * @param {number[]} newestFirstFinalScores
+ * Trend from overall score history (newest first).
+ * @param {number[]} newestFirstOverallScores
  * @returns {number|null} positive = improving
  */
-export function computeStrengthTrendDelta(newestFirstFinalScores) {
-  if (newestFirstFinalScores.length < 4) return null;
-  const recent = newestFirstFinalScores.slice(0, 3);
-  const prior = newestFirstFinalScores.slice(3, 6);
+export function computeStrengthTrendDelta(newestFirstOverallScores) {
+  if (newestFirstOverallScores.length < 4) return null;
+  const recent = newestFirstOverallScores.slice(0, 3);
+  const prior = newestFirstOverallScores.slice(3, 6);
   if (prior.length === 0) return null;
   const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
   return avg(recent) - avg(prior);

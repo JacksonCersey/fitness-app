@@ -1,7 +1,8 @@
 import React, { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Image, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Image, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Defs, G, LinearGradient, Stop } from 'react-native-svg';
 import { useGameTheme, useStyles } from '../../app/context/ThemeStylesContext';
+import AnimatedPageIndicator, { useSyncedPagerScrollX } from '../common/AnimatedPageIndicator';
 import { getStreakRankProgress } from '../../data/streakRanks';
 import { SHARED_ACCENTS } from '../../theme/gameTheme';
 import { getCurrentWeekPerfectCarouselState } from '../../utils/consecutivePerfectWeekStreak';
@@ -109,6 +110,7 @@ function HomeStreakRankCarousel({
   const pageWidth = screenWidth - 32;
   const scrollRef = useRef(null);
   const [activePage, setActivePage] = useState(0);
+  const scrollX = useSyncedPagerScrollX(activePage, pageWidth);
   const isDragging = useRef(false);
   const timerRef = useRef(null);
 
@@ -117,7 +119,7 @@ function HomeStreakRankCarousel({
   const perfectWeeks = Math.max(0, consecutivePerfectWeekStreak);
   const isStreakActiveThisWeek = hasLoggedWorkoutInCurrentWeek(workoutHistory);
   const inactiveRingTrack = theme.homeGamifiedInactive ?? '#4B5563';
-  const activeRingTrack = theme.isLight ? 'rgba(15, 23, 42, 0.12)' : 'rgba(255, 255, 255, 0.18)';
+  const activeRingTrack = 'rgba(255, 255, 255, 0.18)';
 
   const perfectWeekCarousel = useMemo(
     () => getCurrentWeekPerfectCarouselState(weeklySplitPlan, workoutHistory),
@@ -162,11 +164,15 @@ function HomeStreakRankCarousel({
 
   return (
     <View style={styles.homeCarouselWrap}>
-      <ScrollView
+      <Animated.ScrollView
         ref={scrollRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
+          useNativeDriver: false,
+        })}
         onScrollBeginDrag={() => {
           isDragging.current = true;
           clearTimer();
@@ -218,16 +224,16 @@ function HomeStreakRankCarousel({
           </View>
           <Image source={rank.displayRank.image} style={styles.homeCarouselRankImage} />
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
-      <View style={styles.homeCarouselDots}>
-        {Array.from({ length: PAGE_COUNT }).map((_, i) => (
-          <View
-            key={`dot-${i}`}
-            style={[styles.homeCarouselDot, i === activePage && styles.homeCarouselDotActive]}
-          />
-        ))}
-      </View>
+      <AnimatedPageIndicator
+        scrollX={scrollX}
+        pageWidth={pageWidth}
+        pageCount={PAGE_COUNT}
+        accentColor={theme.navAccent}
+        inactiveColor={theme.borderFaint}
+        style={styles.homeCarouselDots}
+      />
     </View>
   );
 }

@@ -1,6 +1,6 @@
 import { StyleSheet, Platform } from 'react-native';
 import { MAIN_NAV_TRACK_HEIGHT } from '../constants/layout';
-import { GAME_THEME_LIGHT } from '../theme/gameTheme';
+import { GAME_THEME_DARK } from '../theme/gameTheme';
 
 export function createMenuLayoutProfileStyles(theme) {
   const t = theme;
@@ -1775,4 +1775,4 @@ export function createMenuLayoutProfileStyles(theme) {
 }
 
 /** Static fallback for unmigrated imports — light candy theme. */
-export default createMenuLayoutProfileStyles(GAME_THEME_LIGHT);
+export default createMenuLayoutProfileStyles(GAME_THEME_DARK);

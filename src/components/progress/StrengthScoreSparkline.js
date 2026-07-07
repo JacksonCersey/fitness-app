@@ -43,7 +43,7 @@ function formatTrendLabel(trendDelta) {
 }
 
 /**
- * Mini line chart of recent per-workout strength scores.
+ * Mini line chart of recent overall strength scores.
  * @param {{
  *   scores: number[],
  *   trendDelta?: number | null,
@@ -94,7 +94,7 @@ function StrengthScoreSparkline({ scores, trendDelta = null }) {
 
   return (
     <View style={styles.progressStrengthSparklineWrap}>
-      <Svg width={CHART_WIDTH} height={CHART_HEIGHT} accessibilityLabel="Recent workout strength trend">
+      <Svg width={CHART_WIDTH} height={CHART_HEIGHT} accessibilityLabel="Recent strength score trend">
         <Defs>
           <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0%" stopColor={accent} stopOpacity="0.28" />

@@ -2,22 +2,25 @@ import React, { memo } from 'react';
 import { useGameTheme, useStyles } from '../app/context/ThemeStylesContext';
 import { Animated, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { formatVolumeCompact, getWorkoutVolumeLb } from '../../utils/workoutStats';
-import { formatTime, formatWorkoutSetSummaryText } from '../utils/formatWorkout';
+import { formatTime } from '../utils/formatWorkout';
 
 function HistoryDayWorkoutsScreen({
   screenTransitionOpacity,
   onBack,
   dayTitleLabel,
   workoutsForDay,
-  exerciseLookup,
+  onSelectWorkout,
   handleDeleteWorkout,
   textPrimary,
   setText,
   deleteText,
   cardBg,
+  accentColor,
 }) {
   const styles = useStyles();
   const theme = useGameTheme();
+  const accent = accentColor || theme.navAccent;
+
   return (
     <SafeAreaView style={styles.menuScreen}>
       <Animated.View style={[styles.screenFadeContainer, { opacity: screenTransitionOpacity }]}>
@@ -44,48 +47,52 @@ function HistoryDayWorkoutsScreen({
               ? 'No workouts saved for this day.'
               : workoutsForDay.length === 1
                 ? '1 workout logged.'
-                : `${workoutsForDay.length} workouts logged.`}
+                : `${workoutsForDay.length} workouts logged. Tap one to view its summary.`}
           </Text>
 
           {workoutsForDay.map((workoutItem, workoutIndex) => {
             const movementKeys = Object.keys(workoutItem.setsByMovement || {});
             const workoutVolume = getWorkoutVolumeLb(workoutItem);
+            const finishedAt = new Date(workoutItem.completedAt);
+            const timeLabel = Number.isNaN(finishedAt.getTime())
+              ? 'Unknown time'
+              : finishedAt.toLocaleTimeString(undefined, {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                });
+
             return (
-              <View
+              <TouchableOpacity
                 key={workoutItem.id || `${workoutIndex}`}
-                style={[styles.movementCard, { backgroundColor: cardBg, marginBottom: 12 }]}>
+                style={[styles.movementCard, { backgroundColor: cardBg, marginBottom: 12 }]}
+                onPress={() => onSelectWorkout?.(workoutItem.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`View summary for workout ${workoutsForDay.length - workoutIndex}`}>
                 <View style={styles.historyCardHeader}>
                   <Text style={[styles.movementTitle, { color: textPrimary }]}>
                     Workout {workoutsForDay.length - workoutIndex}
                   </Text>
-                  <TouchableOpacity onPress={() => handleDeleteWorkout(workoutItem.id)}>
+                  <TouchableOpacity
+                    onPress={() => handleDeleteWorkout(workoutItem.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Text style={[styles.deleteText, { color: deleteText }]}>Delete</Text>
                   </TouchableOpacity>
                 </View>
                 <Text style={[styles.setText, { color: setText }]}>
-                  Finished: {new Date(workoutItem.completedAt).toLocaleString()}
-                </Text>
-                <Text style={[styles.setText, { color: setText }]}>
-                  Total time: {formatTime(workoutItem.elapsedSeconds)} · Total reps: {workoutItem.totalReps} · Volume:{' '}
+                  {timeLabel} · {formatTime(workoutItem.elapsedSeconds)} · {workoutItem.totalReps} reps ·{' '}
                   {formatVolumeCompact(workoutVolume)} lb
                 </Text>
-
-                {movementKeys.map((movement) => {
-                  const movementSets = workoutItem.setsByMovement[movement] || [];
-                  return (
-                    <View key={`${workoutItem.id}-${movement}`} style={styles.historyMovementBlock}>
-                      <Text style={[styles.historyMovementTitle, { color: textPrimary }]}>{movement}</Text>
-                      {movementSets.map((setItem, setIndex) => (
-                        <Text
-                          key={`${workoutItem.id}-${movement}-${setIndex}`}
-                          style={[styles.setText, { color: setText }]}>
-                          {formatWorkoutSetSummaryText(movement, setItem, exerciseLookup)}
-                        </Text>
-                      ))}
-                    </View>
-                  );
-                })}
-              </View>
+                <Text style={[styles.setText, { color: setText, marginTop: 4 }]}>
+                  {movementKeys.length === 0
+                    ? 'No movements logged'
+                    : movementKeys.length === 1
+                      ? movementKeys[0]
+                      : `${movementKeys.length} movements`}
+                </Text>
+                <Text style={[styles.setText, { color: accent, marginTop: 10, fontWeight: '600' }]}>
+                  View summary ›
+                </Text>
+              </TouchableOpacity>
             );
           })}
         </ScrollView>

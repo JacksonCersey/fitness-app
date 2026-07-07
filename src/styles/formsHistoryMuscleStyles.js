@@ -5,7 +5,7 @@ import {
   MUSCLE_TAB_PANEL_MAX_HEIGHT,
   MUSCLE_TAB_PANEL_TOP_INSET,
 } from '../constants/layout';
-import { GAME_THEME_LIGHT } from '../theme/gameTheme';
+import { GAME_THEME_DARK } from '../theme/gameTheme';
 
 export function createFormsHistoryMuscleStyles(theme) {
   const t = theme;
@@ -673,7 +673,10 @@ export function createFormsHistoryMuscleStyles(theme) {
     marginTop: 4,
   },
   historyProgressBody: {
-    paddingTop: 4,
+    flex: 1,
+    paddingHorizontal: 22,
+    paddingTop: 14,
+    paddingBottom: 8,
   },
   historyProgressScroll: {
     paddingTop: 0,
@@ -1030,6 +1033,93 @@ export function createFormsHistoryMuscleStyles(theme) {
     fontWeight: '700',
     color: t.textMuted,
     paddingHorizontal: 4,
+  },
+  progressOverviewAdherenceCard: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: t.borderSubtle,
+    backgroundColor: t.homeCarouselBg,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    marginBottom: 14,
+    alignItems: 'center',
+  },
+  progressOverviewAdherenceHero: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  progressOverviewAdherencePercent: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: t.textPrimary,
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.5,
+  },
+  progressOverviewAdherenceCaption: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: t.textMuted,
+    marginTop: 2,
+    textTransform: 'capitalize',
+  },
+  progressOverviewAdherenceEmptyHint: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: t.textMuted,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  progressOverviewAdherenceStatsGrid: {
+    width: '100%',
+    gap: 16,
+  },
+  progressOverviewAdherenceStatsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  progressOverviewAdherenceStatCell: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  progressOverviewAdherenceStatIconWell: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: t.chipWellBg,
+    borderWidth: 1,
+    borderColor: t.borderFaint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressOverviewAdherenceStatIcon: {
+    width: 22,
+    height: 22,
+    resizeMode: 'contain',
+  },
+  progressOverviewAdherenceStatCheck: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: t.navAccent,
+    lineHeight: 20,
+  },
+  progressOverviewAdherenceStatValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: t.textPrimary,
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
+  },
+  progressOverviewAdherenceStatLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: t.textMuted,
+    textTransform: 'lowercase',
+    textAlign: 'center',
   },
   progressCalendarMonthLabel: {
     fontSize: 12,
@@ -1626,15 +1716,67 @@ export function createFormsHistoryMuscleStyles(theme) {
     marginTop: 8,
     marginBottom: 12,
   },
+  summaryScreenHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 14,
+    gap: 14,
+  },
+  summaryStatsBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    backgroundColor: t.homeStatBarBg,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: t.borderSubtle,
+  },
+  summaryStatCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  summaryStatValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    fontStyle: 'italic',
+    color: t.textPrimary,
+    letterSpacing: -0.5,
+    fontVariant: ['tabular-nums'],
+  },
+  summaryStatLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: t.textMuted,
+    textAlign: 'center',
+    letterSpacing: 0.15,
+    textTransform: 'uppercase',
+  },
   summaryStreakCard: {
     position: 'relative',
     width: '100%',
-    borderRadius: 18,
-    padding: 14,
+    borderRadius: 16,
+    paddingTop: 14,
     marginBottom: 12,
-    backgroundColor: t.cardBgTranslucent,
+    backgroundColor: t.homeCarouselBg,
     borderWidth: 1,
-    borderColor: t.borderFaint,
+    borderColor: t.borderSubtle,
+    overflow: 'hidden',
+  },
+  summaryStreakPagerPage: {
+    paddingHorizontal: 14,
+    paddingBottom: 4,
+  },
+  summaryStreakPagerDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 8,
+    paddingBottom: 12,
   },
   summaryStreakHeaderRow: {
     flexDirection: 'row',
@@ -1691,13 +1833,13 @@ export function createFormsHistoryMuscleStyles(theme) {
   },
   summaryStrengthDeltaCard: {
     width: '100%',
-    borderRadius: 18,
+    borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 14,
     marginBottom: 12,
-    backgroundColor: t.cardBgTranslucent,
+    backgroundColor: t.homeCarouselBg,
     borderWidth: 1,
-    borderColor: t.borderFaint,
+    borderColor: t.borderSubtle,
     alignItems: 'center',
   },
   summaryStreakOverlayFill: {
@@ -1731,12 +1873,27 @@ export function createFormsHistoryMuscleStyles(theme) {
     marginTop: 2,
   },
   summaryLoggedSetsHeading: {
-    color: t.textPrimary,
-    fontSize: 17,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginTop: 8,
+    color: t.textSecondary,
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'left',
+    alignSelf: 'stretch',
+    marginTop: 4,
     marginBottom: 6,
+  },
+  summaryReturnButton: {
+    width: '100%',
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 43, 58, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 43, 58, 0.35)',
+  },
+  summaryReturnButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: t.navAccent,
   },
   musclePulloutRow: {
     position: 'absolute',
@@ -2367,4 +2524,4 @@ export function createFormsHistoryMuscleStyles(theme) {
 }
 
 /** Static fallback for unmigrated imports — light candy theme. */
-export default createFormsHistoryMuscleStyles(GAME_THEME_LIGHT);
+export default createFormsHistoryMuscleStyles(GAME_THEME_DARK);

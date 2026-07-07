@@ -42,7 +42,7 @@ function MainBottomTabBar({
 }) {
   const styles = useStyles();
   const theme = useGameTheme();
-  const blurTint = theme.isLight ? 'light' : 'dark';
+  const blurTint = 'dark';
   const mainNavIndicatorX = useRef(new Animated.Value(0)).current;
   const mainNavTrackInnerRef = useRef(null);
   const mainNavTabsRowRef = useRef(null);

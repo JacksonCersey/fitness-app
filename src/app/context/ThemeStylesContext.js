@@ -1,13 +1,11 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { getGameTheme, toWorkoutThemeShape } from '../../theme/gameTheme';
 import { createThemedStyles } from '../../styles/createThemedStyles';
-import { useAppStorage } from './AppStorageContext';
 
 const ThemeStylesContext = createContext(null);
 
 export function ThemeStylesProvider({ children }) {
-  const { isLightTheme } = useAppStorage();
-  const gameTheme = useMemo(() => getGameTheme(isLightTheme), [isLightTheme]);
+  const gameTheme = useMemo(() => getGameTheme(), []);
   const styles = useMemo(() => createThemedStyles(gameTheme), [gameTheme]);
   const workoutTheme = useMemo(() => toWorkoutThemeShape(gameTheme), [gameTheme]);
 
@@ -16,9 +14,8 @@ export function ThemeStylesProvider({ children }) {
       styles,
       gameTheme,
       workoutTheme,
-      isLightTheme,
     }),
-    [styles, gameTheme, workoutTheme, isLightTheme],
+    [styles, gameTheme, workoutTheme],
   );
 
   return <ThemeStylesContext.Provider value={value}>{children}</ThemeStylesContext.Provider>;

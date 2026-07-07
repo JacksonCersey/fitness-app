@@ -37,7 +37,7 @@ function ProgressStrengthScoreOverview({ summary, onOpenMovements }) {
             <Text style={styles.progressStrengthOverviewValue}>{summary.overallScore}</Text>
             <View style={styles.progressStrengthOverviewRightCol}>
               <StrengthScoreSparkline
-                scores={summary.recentWorkoutScores}
+                scores={summary.recentOverallScores}
                 trendDelta={summary.trendDelta}
               />
               <View style={styles.progressStrengthOverviewPrCol}>

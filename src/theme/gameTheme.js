@@ -1,4 +1,4 @@
-/** Shared playful accent colors — identical in light and dark themes. */
+/** Shared playful accent colors. */
 export const SHARED_ACCENTS = {
   primaryButtonBg: '#FF6B35',
   primaryButtonText: '#FFFFFF',
@@ -44,68 +44,6 @@ export const SHARED_ACCENTS = {
   iconTargets: '#F59E0B',
   iconWeight: '#84CC16',
   iconMore: '#FF6B35',
-};
-
-const LIGHT_SURFACES = {
-  screenBg: '#FFF5FB',
-  screenBgAlt: '#F0F9FF',
-  cardBg: '#FFFFFF',
-  cardBgTranslucent: 'rgba(255, 252, 248, 0.95)',
-  innerCardBg: 'rgba(255, 240, 250, 0.85)',
-  topBarTranslucent: 'rgba(255, 245, 252, 0.92)',
-  topBarStatusMatch: '#FFE8F4',
-  textPrimary: '#1E293B',
-  textSecondary: 'rgba(30, 41, 59, 0.74)',
-  textMuted: 'rgba(30, 41, 59, 0.55)',
-  textSubtle: 'rgba(30, 41, 59, 0.45)',
-  textFaint: 'rgba(30, 41, 59, 0.38)',
-  inputBg: '#FFFFFF',
-  inputBorder: 'rgba(56, 189, 248, 0.45)',
-  inputText: '#1E293B',
-  placeholderText: 'rgba(30, 41, 59, 0.42)',
-  cardBorder: 'rgba(255, 107, 107, 0.45)',
-  cardBorderSubtle: 'rgba(56, 189, 248, 0.35)',
-  overlayBg: 'rgba(0, 0, 0, 0.35)',
-  overlayBgHeavy: 'rgba(0, 0, 0, 0.45)',
-  navInactive: 'rgba(30, 41, 59, 0.55)',
-  navIconInactive: 'rgba(30, 41, 59, 0.55)',
-  navTrackBg: 'rgba(56, 189, 248, 0.22)',
-  navIndicatorBg: 'rgba(255, 255, 255, 0.88)',
-  navTrackBorder: 'rgba(255, 107, 107, 0.35)',
-  fabBg: '#FF6B35',
-  fabText: '#FFFFFF',
-  exerciseCardTop: 'rgba(99, 102, 241, 0.12)',
-  splitModalCardBg: '#FFFFFF',
-  splitModalInnerBg: '#FFF0F8',
-  setLineMuted: 'rgba(30, 41, 59, 0.65)',
-  helpButtonBg: 'rgba(255, 255, 255, 0.95)',
-  helpButtonBorder: 'rgba(99, 102, 241, 0.35)',
-  shadowTint: 'rgba(255, 107, 53, 0.25)',
-  glowTop: 'rgba(255, 107, 107, 0.22)',
-  glowBottom: 'rgba(168, 85, 247, 0.18)',
-  swipeDeleteBg: 'rgba(239, 68, 68, 0.85)',
-  moreRowBg: 'rgba(255, 255, 255, 0.92)',
-  moreRowBorder: 'rgba(56, 189, 248, 0.25)',
-  selectedExerciseBorder: '#6366F1',
-  selectedExerciseBg: 'rgba(99, 102, 241, 0.12)',
-  pillBg: 'rgba(255, 255, 255, 0.85)',
-  pillBorder: 'rgba(56, 189, 248, 0.3)',
-  chipWellBg: 'rgba(248, 248, 255, 0.94)',
-  chipWellBorder: 'rgba(56, 189, 248, 0.35)',
-  surfaceRaised: '#FFFFFF',
-  surfaceSunken: '#E0F2FE',
-  homeStatBarBg: 'rgba(255, 255, 255, 0.88)',
-  homeCarouselBg: 'rgba(240, 249, 255, 0.95)',
-  homeGamifiedSectionBg: 'transparent',
-  homeBodyPanelBg: '#FFFFFF',
-  surfaceMuted: 'rgba(30, 41, 59, 0.06)',
-  borderSubtle: 'rgba(30, 41, 59, 0.1)',
-  borderFaint: 'rgba(30, 41, 59, 0.08)',
-  barMuted: 'rgba(30, 41, 59, 0.12)',
-  iconWellBg: 'rgba(255, 255, 255, 0.9)',
-  celebrationShadow: '#000000',
-  statusBarStyle: 'dark-content',
-  isLight: true,
 };
 
 const DARK_SURFACES = {
@@ -167,14 +105,12 @@ const DARK_SURFACES = {
   iconWellBg: 'rgba(36, 48, 68, 0.9)',
   celebrationShadow: '#000000',
   statusBarStyle: 'light-content',
-  isLight: false,
 };
 
-export const GAME_THEME_LIGHT = { ...SHARED_ACCENTS, ...LIGHT_SURFACES };
 export const GAME_THEME_DARK = { ...SHARED_ACCENTS, ...DARK_SURFACES };
 
-export function getGameTheme(isLightTheme) {
-  return isLightTheme ? GAME_THEME_LIGHT : GAME_THEME_DARK;
+export function getGameTheme() {
+  return GAME_THEME_DARK;
 }
 
 /** Legacy shape used by workout screens and components passing `theme` / `wt` props. */

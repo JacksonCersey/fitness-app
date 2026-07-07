@@ -99,7 +99,7 @@ function HomeDatePickerStrip({ selectedDate, onSelectDate, workoutHistory }) {
             {isSelected ? (
               <BlurView
                 intensity={40}
-                tint={theme.isLight ? 'light' : 'dark'}
+                tint="dark"
                 style={styles.homeDateCellGlass}
               />
             ) : null}
@@ -114,7 +114,7 @@ function HomeDatePickerStrip({ selectedDate, onSelectDate, workoutHistory }) {
         </TouchableOpacity>
       );
     },
-    [onSelectDate, selectedDate, styles, theme.isLight, workoutHistory],
+    [onSelectDate, selectedDate, styles, workoutHistory],
   );
 
   return (

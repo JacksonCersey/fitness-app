@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useWorkoutTheme } from '../context/ThemeStylesContext';
 import { Animated, StatusBar, StyleSheet, View } from 'react-native';
@@ -17,6 +17,7 @@ import { useActiveWorkout } from '../context/ActiveWorkoutContext';
 import { useAppStorage } from '../context/AppStorageContext';
 import { useAppNavigation } from '../context/AppNavigationContext';
 import { useHistoryProgress } from '../context/HistoryProgressContext';
+import { buildHistoricalWorkoutSummaryContext } from '../../utils/historicalWorkoutSummary';
 import MainTabsNavigator from './MainTabsNavigator';
 
 function WorkoutScreenRoute() {
@@ -104,6 +105,67 @@ function WorkoutScreenRoute() {
         />
         </SafeAreaView>
       </BottomSheetModalProvider>
+    </>
+  );
+}
+
+function HistoricalWorkoutSummaryRoute() {
+  const { screenTransitionOpacity } = useAppNavigation();
+  const {
+    workoutHistory,
+    exerciseLookup,
+    weightLogs,
+    weeklySplitPlan,
+  } = useAppStorage();
+  const { viewingHistoricalWorkoutId, handleCloseHistoricalWorkoutSummary } = useHistoryProgress();
+
+  const workout = useMemo(
+    () => workoutHistory.find((item) => item.id === viewingHistoricalWorkoutId) ?? null,
+    [workoutHistory, viewingHistoricalWorkoutId],
+  );
+
+  const historicalContext = useMemo(
+    () =>
+      buildHistoricalWorkoutSummaryContext(
+        workout,
+        workoutHistory,
+        weightLogs,
+        exerciseLookup,
+        weeklySplitPlan,
+      ),
+    [workout, workoutHistory, weightLogs, exerciseLookup, weeklySplitPlan],
+  );
+
+  useEffect(() => {
+    if (!viewingHistoricalWorkoutId) return;
+    if (!workout) {
+      handleCloseHistoricalWorkoutSummary();
+    }
+  }, [viewingHistoricalWorkoutId, workout, handleCloseHistoricalWorkoutSummary]);
+
+  if (!workout || !historicalContext) {
+    return null;
+  }
+
+  return (
+    <>
+      <StatusBar barStyle="light-content" />
+      <SummaryScreen
+        screenTransitionOpacity={screenTransitionOpacity}
+        elapsedSeconds={historicalContext.elapsedSeconds}
+        movementNamesNewestFirst={historicalContext.movementNamesNewestFirst}
+        setsByMovement={historicalContext.setsByMovement}
+        exerciseLookup={exerciseLookup}
+        onReturnToMenu={handleCloseHistoricalWorkoutSummary}
+        strengthScoreSummary={historicalContext.strengthScoreSummary}
+        consecutiveTrainingWeekStreak={historicalContext.consecutiveTrainingWeekStreak}
+        menuWeekGymProgress={historicalContext.menuWeekGymProgress}
+        workoutHistory={historicalContext.workoutHistory}
+        weightLogs={weightLogs}
+        readOnly
+        skipAnimations
+        returnButtonLabel="Back"
+      />
     </>
   );
 }
@@ -206,6 +268,7 @@ function SubscreenLayer() {
     historyDayScreenTitle,
     workoutsForHistoryDay,
     handleCloseHistoryDayDetail,
+    handleOpenHistoricalWorkoutSummary,
     handleReturnFromSubscreen,
   } = useHistoryProgress();
 
@@ -253,6 +316,10 @@ function SubscreenLayer() {
     );
   }
 
+  if (currentScreen === 'historicalWorkoutSummary') {
+    return <HistoricalWorkoutSummaryRoute />;
+  }
+
   if (currentScreen === 'historyDay') {
     return (
       <>
@@ -262,6 +329,7 @@ function SubscreenLayer() {
           onBack={handleCloseHistoryDayDetail}
           dayTitleLabel={historyDayScreenTitle}
           workoutsForDay={workoutsForHistoryDay}
+          onSelectWorkout={(workoutId) => handleOpenHistoricalWorkoutSummary(workoutId, 'historyDay')}
           exerciseLookup={exerciseLookup}
           handleDeleteWorkout={handleDeleteWorkout}
           textPrimary="#EEF1FF"
