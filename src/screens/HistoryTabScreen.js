@@ -1,15 +1,17 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { useGameTheme, useStyles } from '../app/context/ThemeStylesContext';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import PastWorkoutsMonthCalendar from '../../components/PastWorkoutsMonthCalendar';
 import MonthlyVolumeChart from '../../components/MonthlyVolumeChart';
 import WeightProgressChart from '../../components/WeightProgressChart';
 import StrengthScoreCard from '../components/StrengthScoreCard';
+import ProgressStrengthScoreOverview from '../components/progress/ProgressStrengthScoreOverview';
+import ProgressOverviewStreakPanel from '../components/progress/ProgressOverviewStreakPanel';
 
 const PROGRESS_SECTIONS = [
   { id: 'overview', label: 'Overview' },
-  { id: 'weight', label: 'Weight' },
-  { id: 'strength', label: 'Strength' },
+  { id: 'body', label: 'Body' },
+  { id: 'streak', label: 'Streak' },
 ];
 
 function HistoryTabScreen({
@@ -38,6 +40,7 @@ function HistoryTabScreen({
   historyChartMax,
   workoutHistory,
   strengthScoreSummary,
+  consecutiveTrainingWeekStreak,
   onOpenStrengthMovements,
   onOpenDayWorkouts,
 }) {
@@ -46,10 +49,14 @@ function HistoryTabScreen({
   const strengthColors = {
     textPrimary: theme.textPrimary,
     textSecondary: theme.textSecondary,
-    accentSolid: theme.secondaryButtonBg,
+    accentSolid: theme.navAccent,
     cardBg: theme.cardBg,
     cardBorder: theme.cardBorder,
   };
+  const calendarMonthLabel = useMemo(() => {
+    const month = String(historyCalendarMonth + 1).padStart(2, '0');
+    return `${month}/${historyCalendarYear}`;
+  }, [historyCalendarMonth, historyCalendarYear]);
   return (
     <View style={[styles.menuBody, styles.historyProgressBody]}>
       <View style={styles.menuGradientTopGlow} pointerEvents="none" />
@@ -90,17 +97,18 @@ function HistoryTabScreen({
         showsVerticalScrollIndicator={false}>
         {historyProgressSection === 'overview' ? (
           <>
-            <StrengthScoreCard
+            <ProgressStrengthScoreOverview
               summary={strengthScoreSummary}
-              compact
-              colors={strengthColors}
               onOpenMovements={onOpenStrengthMovements}
             />
 
-            <Text style={styles.historyPastWorkoutsHeading}>Past workouts</Text>
-            <Text style={[styles.menuMoreBodyText, { marginBottom: 12, alignSelf: 'stretch' }]}>
-              Tap a highlighted day to see lifts from that session. Use the arrows to browse other months.
-            </Text>
+            <ProgressOverviewStreakPanel
+              consecutiveTrainingWeekStreak={consecutiveTrainingWeekStreak}
+              workoutHistory={workoutHistory}
+              onOpenStreakTab={() => setHistoryProgressSection('streak')}
+            />
+
+            <Text style={styles.progressCalendarMonthLabel}>{calendarMonthLabel}</Text>
 
             <PastWorkoutsMonthCalendar
               year={historyCalendarYear}
@@ -111,13 +119,13 @@ function HistoryTabScreen({
               styles={styles}
               textPrimary={theme.textPrimary}
               textMuted={theme.textMuted}
-              accentSolid={theme.accentSolid}
+              accentSolid={theme.navAccent}
               today={new Date()}
             />
           </>
         ) : null}
 
-        {historyProgressSection === 'weight' ? (
+        {historyProgressSection === 'body' ? (
           <>
             <View style={[styles.historyStatCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
               <View style={styles.historyWeightHeaderRow}>
@@ -185,7 +193,7 @@ function HistoryTabScreen({
           </>
         ) : null}
 
-        {historyProgressSection === 'strength' ? (
+        {historyProgressSection === 'streak' ? (
           <>
             <StrengthScoreCard
               summary={strengthScoreSummary}

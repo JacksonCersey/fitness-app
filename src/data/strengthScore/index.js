@@ -24,6 +24,7 @@ import {
   smoothDisplayedScore,
 } from './overallScore';
 import { buildLifetimeBestLiftScores, computeWorkoutStrengthScore } from './workoutScore';
+import { SCORE_SCALING } from './constants';
 
 export { getExerciseStrengthMeta, normalizeMovementKey } from './exerciseMultipliers';
 export { estimateOneRepMax, isWorkingSet, getBestWorkingSet } from './e1rm';
@@ -45,6 +46,7 @@ export { runStrengthScoreExamples } from './examples';
  * @property {number} consecutiveWeeks
  * @property {number} bodyweightLb
  * @property {Array<{ movement: string, bestScore: number }>} topLifetimeLifts
+ * @property {number[]} recentWorkoutScores Oldest-first per-workout scores for sparkline (up to 6).
  * @property {boolean} hasData
  */
 
@@ -78,6 +80,7 @@ export function computeStrengthScoreSummary(
     consecutiveWeeks,
     bodyweightLb: getLatestBodyweightLb(weightLogs),
     topLifetimeLifts: [],
+    recentWorkoutScores: [],
     hasData: false,
   };
 
@@ -132,6 +135,11 @@ export function computeStrengthScoreSummary(
   );
 
   const newestFirstFinalScores = scored.map((s) => s.finalScore);
+  const sparklineWindow = SCORE_SCALING.recentWorkoutWindow;
+  const recentWorkoutScores = newestFirstFinalScores
+    .slice(0, sparklineWindow)
+    .map((score) => Math.round(score * 10) / 10)
+    .reverse();
   const topLifetimeLifts = Object.values(lifetimeBests)
     .sort((a, b) => b.bestScore - a.bestScore)
     .slice(0, 4)
@@ -151,6 +159,7 @@ export function computeStrengthScoreSummary(
     consecutiveWeeks,
     bodyweightLb: getLatestBodyweightLb(weightLogs),
     topLifetimeLifts,
+    recentWorkoutScores,
     hasData: true,
   };
 }

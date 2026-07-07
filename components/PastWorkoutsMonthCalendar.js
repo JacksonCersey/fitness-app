@@ -122,7 +122,7 @@ function PastWorkoutsMonthCalendar({
                     s.historyCalendarDayHasWorkout,
                     { backgroundColor: accentSolid },
                     !inDisplayMonth ? s.historyCalendarDayAdjacentMonth : null,
-                    isToday ? s.historyCalendarDayTodayRing : null,
+                    isToday ? s.historyCalendarDayTodayRingOnAccent : null,
                   ]}>
                   <Text style={[s.historyCalendarDayNumber, s.historyCalendarDayNumberOnAccent]}>{d}</Text>
                 </View>
@@ -135,14 +135,15 @@ function PastWorkoutsMonthCalendar({
               <View
                 style={[
                   s.historyCalendarDayInner,
-                  s.historyCalendarDayMuted,
+                  isToday ? s.historyCalendarDayTodayMuted : s.historyCalendarDayMuted,
                   !inDisplayMonth ? s.historyCalendarDayAdjacentMonth : null,
-                  isToday ? s.historyCalendarDayTodayRing : null,
                 ]}>
                 <Text
                   style={[
                     s.historyCalendarDayNumber,
-                    { color: textMuted, opacity: inDisplayMonth ? 1 : 0.5 },
+                    isToday
+                      ? { color: accentSolid, fontWeight: '800' }
+                      : { color: textMuted, opacity: inDisplayMonth ? 1 : 0.5 },
                   ]}>
                   {d}
                 </Text>
