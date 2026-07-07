@@ -1,9 +1,10 @@
-import React, { memo, useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo, useState, useRef } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useStyles } from '../app/context/ThemeStylesContext';
 import {
   getSplitDaySessionTitle,
   getSplitEntryForDate,
+  isTodayLocalDay,
   startOfLocalDay,
 } from '../utils/homeDashboard';
 import HomeProfileHeader from '../components/home/HomeProfileHeader';
@@ -25,11 +26,22 @@ function MenuHomeTabScreen({
   onOpenProfile,
 }) {
   const styles = useStyles();
+  const levelSelectRef = useRef(null);
   const [selectedDate, setSelectedDate] = useState(() => startOfLocalDay(new Date()));
+  const [isLevelSelectScrolledFromToday, setIsLevelSelectScrolledFromToday] = useState(false);
 
   const handleSelectDate = useCallback((date) => {
     setSelectedDate(startOfLocalDay(date));
   }, []);
+
+  const handleBackToToday = useCallback(() => {
+    const today = startOfLocalDay(new Date());
+    setSelectedDate(today);
+    levelSelectRef.current?.scrollToToday();
+    setIsLevelSelectScrolledFromToday(false);
+  }, []);
+
+  const showBackToToday = !isTodayLocalDay(selectedDate) || isLevelSelectScrolledFromToday;
 
   const sessionTitle = useMemo(() => {
     const entry = getSplitEntryForDate(weeklySplitPlan, selectedDate);
@@ -39,7 +51,12 @@ function MenuHomeTabScreen({
   return (
     <View style={styles.menuHomeShell}>
       <View style={styles.homeProfileHeaderBar}>
-        <HomeProfileHeader onOpenProfile={onOpenProfile} sessionTitle={sessionTitle} />
+        <HomeProfileHeader
+          onOpenProfile={onOpenProfile}
+          sessionTitle={sessionTitle}
+          showBackToToday={showBackToToday}
+          onBackToToday={handleBackToToday}
+        />
       </View>
       <View style={styles.homeScreenScrollWrap}>
         <ScrollView
@@ -51,8 +68,10 @@ function MenuHomeTabScreen({
           showsVerticalScrollIndicator={false}>
           <View style={styles.homeGamifiedSection}>
             <HomeWorkoutLevelSelect
+              ref={levelSelectRef}
               selectedDate={selectedDate}
               onSelectDate={handleSelectDate}
+              onScrolledFromTodayChange={setIsLevelSelectScrolledFromToday}
               weeklySplitPlan={weeklySplitPlan}
               workoutHistory={workoutHistory}
               exerciseLookup={exerciseLookup}

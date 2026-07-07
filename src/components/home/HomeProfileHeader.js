@@ -4,9 +4,14 @@ import { useStyles } from '../../app/context/ThemeStylesContext';
 import { formatWeekdayShort, startOfLocalDay } from '../../utils/homeDashboard';
 
 /**
- * @param {{ onOpenProfile: () => void; sessionTitle: string }} props
+ * @param {{
+ *   onOpenProfile: () => void;
+ *   sessionTitle: string;
+ *   showBackToToday: boolean;
+ *   onBackToToday: () => void;
+ * }} props
  */
-function HomeProfileHeader({ onOpenProfile, sessionTitle }) {
+function HomeProfileHeader({ onOpenProfile, sessionTitle, showBackToToday, onBackToToday }) {
   const styles = useStyles();
   const today = useMemo(() => startOfLocalDay(new Date()), []);
 
@@ -33,6 +38,22 @@ function HomeProfileHeader({ onOpenProfile, sessionTitle }) {
         <Text style={styles.homeTopDateWeekday}>{formatWeekdayShort(today)}</Text>
         <Text style={styles.homeTopDateNumber}>{today.getDate()}</Text>
       </View>
+
+      <TouchableOpacity
+        style={[
+          styles.homeTopBackToTodayButton,
+          !showBackToToday && styles.homeTopBackToTodayButtonHidden,
+        ]}
+        activeOpacity={0.85}
+        onPress={onBackToToday}
+        disabled={!showBackToToday}
+        accessibilityRole="button"
+        accessibilityLabel="Return to today"
+        accessibilityElementsHidden={!showBackToToday}
+        importantForAccessibility={showBackToToday ? 'yes' : 'no-hide-descendants'}
+        pointerEvents={showBackToToday ? 'auto' : 'none'}>
+        <Text style={styles.homeTopBackToTodayText}>‹</Text>
+      </TouchableOpacity>
     </View>
   );
 }

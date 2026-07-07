@@ -27,6 +27,7 @@ export function createHomeDashboardStyles(theme) {
       flexDirection: 'row',
       alignItems: 'flex-start',
       justifyContent: 'space-between',
+      position: 'relative',
     },
     homeTopHeaderLeft: {
       flex: 1,
@@ -54,6 +55,30 @@ export function createHomeDashboardStyles(theme) {
       fontWeight: '700',
       color: theme.textPrimary,
       marginTop: -2,
+    },
+    homeTopBackToTodayButton: {
+      position: 'absolute',
+      right: 0,
+      // Profile button (36) + column gap (10) aligns with session title row.
+      top: 46,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255, 43, 58, 0.16)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 43, 58, 0.35)',
+    },
+    homeTopBackToTodayButtonHidden: {
+      opacity: 0,
+    },
+    homeTopBackToTodayText: {
+      fontSize: 24,
+      fontWeight: '600',
+      lineHeight: 26,
+      marginTop: -1,
+      color: theme.navAccent,
     },
     homeGamifiedSection: {
       paddingHorizontal: 16,

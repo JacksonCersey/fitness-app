@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { FlatList, Image, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import Animated, {
   Easing,
@@ -210,18 +210,23 @@ function LevelDayCircle({ date, dayEntry, isSelected, useAccent, onPress }) {
  * @param {{
  *   selectedDate: Date;
  *   onSelectDate: (date: Date) => void;
+ *   onScrolledFromTodayChange?: (isScrolledAway: boolean) => void;
  *   weeklySplitPlan: { days: unknown[] } | null | undefined;
  *   workoutHistory: unknown[];
  *   exerciseLookup: Record<string, unknown>;
  * }} props
  */
-function HomeWorkoutLevelSelect({
-  selectedDate,
-  onSelectDate,
-  weeklySplitPlan,
-  workoutHistory,
-  exerciseLookup,
-}) {
+const HomeWorkoutLevelSelect = forwardRef(function HomeWorkoutLevelSelect(
+  {
+    selectedDate,
+    onSelectDate,
+    onScrolledFromTodayChange,
+    weeklySplitPlan,
+    workoutHistory,
+    exerciseLookup,
+  },
+  ref,
+) {
   const styles = useStyles();
   const { width: screenWidth } = useWindowDimensions();
   const listWidth = screenWidth - PARENT_HORIZONTAL_PADDING * 2;
@@ -229,20 +234,56 @@ function HomeWorkoutLevelSelect({
   const listRef = useRef(null);
   const iconTrackRef = useRef(null);
   const hasInitialScroll = useRef(false);
+  const isScrollingFromParent = useRef(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalDate, setModalDate] = useState(null);
   const [modalEntry, setModalEntry] = useState({ type: 'rest', mixedMuscles: [] });
   const [bubbleAnchor, setBubbleAnchor] = useState(null);
 
   const dates = useMemo(() => buildDateRangeAround(new Date(), DAYS_BEFORE, DAYS_AFTER), []);
+  const today = useMemo(() => startOfLocalDay(new Date()), []);
+  const todayIndex = useMemo(() => indexOfSameDay(dates, today), [dates, today]);
+
+  const reportScrolledFromToday = useCallback(
+    (offsetX) => {
+      if (isScrollingFromParent.current) return;
+      const index = Math.round(offsetX / LEVEL_CELL_WIDTH);
+      const clamped = Math.max(0, Math.min(dates.length - 1, index));
+      onScrolledFromTodayChange?.(clamped !== todayIndex);
+    },
+    [dates.length, onScrolledFromTodayChange, todayIndex],
+  );
 
   const scrollToDay = useCallback(
     (date, animated = true) => {
       const index = indexOfSameDay(dates, date);
       if (index < 0 || !listRef.current) return;
+      isScrollingFromParent.current = true;
       listRef.current.scrollToIndex({ index, animated });
+      setTimeout(
+        () => {
+          isScrollingFromParent.current = false;
+          onScrolledFromTodayChange?.(index !== todayIndex);
+        },
+        animated ? 350 : 50,
+      );
     },
-    [dates],
+    [dates, onScrolledFromTodayChange, todayIndex],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToToday: () => scrollToDay(today, true),
+    }),
+    [scrollToDay, today],
+  );
+
+  const handleScroll = useCallback(
+    (event) => {
+      reportScrolledFromToday(event.nativeEvent.contentOffset.x);
+    },
+    [reportScrolledFromToday],
   );
 
   const handleListLayout = useCallback(() => {
@@ -250,6 +291,11 @@ function HomeWorkoutLevelSelect({
     hasInitialScroll.current = true;
     requestAnimationFrame(() => scrollToDay(startOfLocalDay(new Date()), false));
   }, [scrollToDay]);
+
+  useEffect(() => {
+    if (!hasInitialScroll.current) return;
+    scrollToDay(selectedDate, true);
+  }, [selectedDate, scrollToDay]);
 
   const openModalForDate = useCallback(
     (date) => {
@@ -333,6 +379,7 @@ function HomeWorkoutLevelSelect({
           renderItem={renderDay}
           horizontal
           showsHorizontalScrollIndicator={false}
+          scrollEventThrottle={16}
           style={{ width: listWidth, overflow: 'visible' }}
           contentContainerStyle={{ paddingHorizontal: sideInset, alignItems: 'center', paddingVertical: 4 }}
           getItemLayout={(_, index) => ({
@@ -340,6 +387,7 @@ function HomeWorkoutLevelSelect({
             offset: LEVEL_CELL_WIDTH * index,
             index,
           })}
+          onScroll={handleScroll}
           onLayout={handleListLayout}
           onScrollToIndexFailed={(info) => {
             setTimeout(() => {
@@ -350,6 +398,6 @@ function HomeWorkoutLevelSelect({
       </View>
     </View>
   );
-}
+});
 
 export default memo(HomeWorkoutLevelSelect);
