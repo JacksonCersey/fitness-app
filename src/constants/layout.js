@@ -43,16 +43,34 @@ export const MORE_HUB_SUBSCREEN_KEYS = new Set([
   'splitPlanner',
 ]);
 
-/** True when `screenKey` is a More-stack screen returning to the More tab. */
+/** Subscreens opened from the Progress tab — slide in from the right. */
+export const PROGRESS_SUBSCREEN_KEYS = new Set(['strengthScoreHistory']);
+
+/** True when `screenKey` should slide over its parent tab (`returnTabKey`). */
+export function shouldUseSubscreenSlideTransition(screenKey, returnTabKey = 'settings') {
+  if (returnTabKey === 'settings') {
+    return MORE_HUB_SUBSCREEN_KEYS.has(screenKey);
+  }
+  if (returnTabKey === 'history') {
+    return PROGRESS_SUBSCREEN_KEYS.has(screenKey);
+  }
+  return false;
+}
+
+/** @deprecated Use shouldUseSubscreenSlideTransition */
 export function shouldUseMoreHubSlideTransition(screenKey, returnTabKey = 'settings') {
-  if (returnTabKey !== 'settings') return false;
-  return MORE_HUB_SUBSCREEN_KEYS.has(screenKey);
+  return shouldUseSubscreenSlideTransition(screenKey, returnTabKey);
+}
+
+/** Subscreen is sliding over a main tab (keep that tab visible underneath). */
+export function isSubscreenSlideOverlay(screenKey, returnTabKey = 'settings') {
+  if (MAIN_TAB_SCREEN_KEYS.has(screenKey)) return false;
+  return shouldUseSubscreenSlideTransition(screenKey, returnTabKey);
 }
 
 /** More subscreen is sliding over the More tab (keep More visible underneath). */
 export function isMoreHubSlideOverlay(screenKey, returnTabKey = 'settings') {
-  if (MAIN_TAB_SCREEN_KEYS.has(screenKey)) return false;
-  return shouldUseMoreHubSlideTransition(screenKey, returnTabKey);
+  return isSubscreenSlideOverlay(screenKey, returnTabKey);
 }
 
 /** Bottom-tab root screens — cross-fade handled in MainTabsRoot. */

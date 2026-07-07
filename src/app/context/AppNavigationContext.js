@@ -15,6 +15,7 @@ import {
   SCREEN_TRANSITION_MS,
   isMoreHubSlideOverlay,
   shouldUseMoreHubSlideTransition,
+  shouldUseSubscreenSlideTransition,
 } from '../../constants/layout';
 import { useAppStorage } from './AppStorageContext';
 
@@ -111,19 +112,23 @@ export function AppNavigationProvider({ children, currentScreen, setCurrentScree
       return;
     }
 
-    const isMoreHubPush =
-      previousScreen === 'settings' && shouldUseMoreHubSlideTransition(currentScreen, 'settings');
+    const isSubscreenPush =
+      (previousScreen === 'settings' &&
+        shouldUseSubscreenSlideTransition(currentScreen, 'settings')) ||
+      (previousScreen === 'history' && shouldUseSubscreenSlideTransition(currentScreen, 'history'));
 
-    const isMoreHubPop =
-      shouldUseMoreHubSlideTransition(previousScreen, 'settings') && currentScreen === 'settings';
+    const returnTab = subNavigatorReturnRef.current;
+    const isSubscreenPop =
+      shouldUseSubscreenSlideTransition(previousScreen, returnTab) &&
+      currentScreen === returnTab;
 
-    if (isMoreHubPush) {
+    if (isSubscreenPush) {
       screenTransitionOpacity.setValue(1);
       animateMoreHubSubscreenEnter();
       return;
     }
 
-    if (isMoreHubPop) {
+    if (isSubscreenPop) {
       screenTransitionOpacity.setValue(1);
       moreHubNavBarOpacity.setValue(1);
       return;
@@ -243,10 +248,27 @@ export function AppNavigationProvider({ children, currentScreen, setCurrentScree
     else setCurrentScreen('menu');
   }, [setCurrentScreen, runMoreSubscreenPop]);
 
+  const handleOpenStrengthScoreHistory = useCallback(() => {
+    subNavigatorReturnRef.current = 'history';
+    setCurrentScreen('strengthScoreHistory');
+  }, [setCurrentScreen]);
+
+  const handleCloseStrengthScoreHistory = useCallback(() => {
+    const dest = subNavigatorReturnRef.current;
+    if (dest === 'history' && shouldUseSubscreenSlideTransition('strengthScoreHistory', 'history')) {
+      runMoreSubscreenPop(() => setCurrentScreen('history'));
+      return;
+    }
+    if (dest === 'history') setCurrentScreen('history');
+    else setCurrentScreen('menu');
+  }, [setCurrentScreen, runMoreSubscreenPop]);
+
   const mainTabsDisplayedScreen = MAIN_TAB_SCREEN_KEYS.has(currentScreen)
     ? currentScreen
     : isMoreHubSlideOverlay(currentScreen, subNavigatorReturnRef.current)
-      ? 'settings'
+      ? MAIN_TAB_SCREEN_KEYS.has(subNavigatorReturnRef.current)
+        ? subNavigatorReturnRef.current
+        : 'settings'
       : currentScreen;
 
   const value = useMemo(
@@ -277,6 +299,8 @@ export function AppNavigationProvider({ children, currentScreen, setCurrentScree
       handleCloseSplitPlanner,
       handleOpenStrengthMovements,
       handleCloseStrengthMovements,
+      handleOpenStrengthScoreHistory,
+      handleCloseStrengthScoreHistory,
     }),
     [
       currentScreen,
@@ -303,6 +327,8 @@ export function AppNavigationProvider({ children, currentScreen, setCurrentScree
       handleCloseSplitPlanner,
       handleOpenStrengthMovements,
       handleCloseStrengthMovements,
+      handleOpenStrengthScoreHistory,
+      handleCloseStrengthScoreHistory,
     ],
   );
 

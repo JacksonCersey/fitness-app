@@ -49,12 +49,14 @@ function formatTrendLabel(trendDelta) {
  *   trendDelta?: number | null,
  * }} props
  */
-function StrengthScoreSparkline({ scores, trendDelta = null }) {
+function StrengthScoreSparkline({ scores, trendDelta = null, wide = false }) {
   const styles = useStyles();
   const theme = useGameTheme();
   const accent = theme.navAccent;
   const rawId = useId().replace(/[^a-zA-Z0-9-_]/g, '');
   const gradientId = `strengthSparkFill-${rawId}`;
+  const chartWidth = wide ? 168 : CHART_WIDTH;
+  const chartHeight = wide ? 52 : CHART_HEIGHT;
 
   const safeScores = useMemo(
     () => (Array.isArray(scores) ? scores.filter((v) => Number.isFinite(v)) : []),
@@ -62,8 +64,8 @@ function StrengthScoreSparkline({ scores, trendDelta = null }) {
   );
 
   const coords = useMemo(
-    () => buildSparklineCoords(safeScores, CHART_WIDTH, CHART_HEIGHT),
-    [safeScores],
+    () => buildSparklineCoords(safeScores, chartWidth, chartHeight),
+    [safeScores, chartWidth, chartHeight],
   );
 
   const linePoints = coords.map((p) => `${p.x},${p.y}`).join(' ');
@@ -71,12 +73,12 @@ function StrengthScoreSparkline({ scores, trendDelta = null }) {
 
   const areaPath = useMemo(() => {
     if (coords.length < 2) return '';
-    const baseY = CHART_HEIGHT - PAD_Y;
+    const baseY = chartHeight - PAD_Y;
     const first = coords[0];
     const last = coords[coords.length - 1];
     const line = coords.map((p) => `L ${p.x} ${p.y}`).join(' ');
     return `M ${first.x} ${baseY} L ${first.x} ${first.y} ${line} L ${last.x} ${baseY} Z`;
-  }, [coords]);
+  }, [coords, chartHeight]);
 
   const trendLabel = formatTrendLabel(trendDelta);
   const trendIsUp = trendDelta != null && trendDelta > 0.5;
@@ -94,7 +96,7 @@ function StrengthScoreSparkline({ scores, trendDelta = null }) {
 
   return (
     <View style={styles.progressStrengthSparklineWrap}>
-      <Svg width={CHART_WIDTH} height={CHART_HEIGHT} accessibilityLabel="Recent strength score trend">
+      <Svg width={chartWidth} height={chartHeight} accessibilityLabel="Recent strength score trend">
         <Defs>
           <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0%" stopColor={accent} stopOpacity="0.28" />

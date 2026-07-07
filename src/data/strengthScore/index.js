@@ -51,6 +51,7 @@ export {
  * @property {number} bodyweightLb
  * @property {Array<{ movement: string, bestScore: number }>} topLifetimeLifts
  * @property {number[]} recentOverallScores Oldest-first overall strength scores for sparkline (up to 6).
+ * @property {Array<{ value: number; timestamp: number; label: string }>} overallScoreHistory
  * @property {boolean} hasData
  */
 
@@ -132,6 +133,7 @@ export function computeStrengthScoreSummary(
     bodyweightLb: getLatestBodyweightLb(weightLogs),
     topLifetimeLifts: [],
     recentOverallScores: [],
+    overallScoreHistory: [],
     hasData: false,
   };
 
@@ -193,13 +195,18 @@ export function computeStrengthScoreSummary(
     .map((r) => ({ movement: r.movement, bestScore: Math.round(r.bestScore * 10) / 10 }));
 
   const overallScoreTimeline = [];
+  /** @type {Array<{ value: number; timestamp: number; label: string }>} */
+  const overallScoreHistory = [];
+  const workoutYears = new Set(
+    oldestFirst.map((workout) => new Date(workout.completedAt).getFullYear()),
+  );
+  const multiYearHistory = workoutYears.size > 1;
   let timelinePrevious = null;
   for (let index = 0; index < oldestFirst.length; index += 1) {
+    const workout = oldestFirst[index];
+    const workoutDate = new Date(workout.completedAt);
     const prefix = oldestFirst.slice(0, index + 1);
-    const prefixStreak = computeConsecutiveTrainingWeekStreak(
-      prefix,
-      new Date(oldestFirst[index].completedAt),
-    );
+    const prefixStreak = computeConsecutiveTrainingWeekStreak(prefix, workoutDate);
     const { workoutRelatives } = buildWorkoutRelativePerformanceSeries(prefix, getBw, exerciseLookup);
     const prefixLastRelative = workoutRelatives[workoutRelatives.length - 1] ?? 1;
     const prefixAllowDecrease = isWeakRelativePerformance(prefixLastRelative);
@@ -212,6 +219,16 @@ export function computeStrengthScoreSummary(
       prefixAllowDecrease,
     );
     overallScoreTimeline.push(point.overallScore);
+    const month = workoutDate.getMonth() + 1;
+    const day = workoutDate.getDate();
+    const label = multiYearHistory
+      ? `${month}/${day}/${String(workoutDate.getFullYear()).slice(-2)}`
+      : `${month}/${day}`;
+    overallScoreHistory.push({
+      value: point.overallScore,
+      timestamp: workoutDate.getTime(),
+      label,
+    });
     timelinePrevious = point.overallScore;
   }
 
@@ -234,6 +251,7 @@ export function computeStrengthScoreSummary(
     bodyweightLb: getLatestBodyweightLb(weightLogs),
     topLifetimeLifts,
     recentOverallScores,
+    overallScoreHistory,
     hasData: true,
   };
 }

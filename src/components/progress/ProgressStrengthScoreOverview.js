@@ -7,10 +7,10 @@ import StrengthScoreSparkline from './StrengthScoreSparkline';
  * Compact strength score header for the Progress Overview tab.
  * @param {{
  *   summary: import('../../data/strengthScore').StrengthScoreSummary | null,
- *   onOpenMovements?: () => void,
+ *   onOpenStrengthHistory?: () => void,
  * }} props
  */
-function ProgressStrengthScoreOverview({ summary, onOpenMovements }) {
+function ProgressStrengthScoreOverview({ summary, onOpenStrengthHistory }) {
   const styles = useStyles();
   if (!summary) return null;
 
@@ -20,12 +20,12 @@ function ProgressStrengthScoreOverview({ summary, onOpenMovements }) {
     <View style={styles.progressStrengthOverviewCard}>
       <View style={styles.progressStrengthOverviewHeaderRow}>
         <Text style={styles.progressStrengthOverviewTitle}>Strength Score</Text>
-        {onOpenMovements ? (
+        {onOpenStrengthHistory ? (
           <TouchableOpacity
             style={styles.progressStrengthOverviewMovementsBtn}
-            onPress={onOpenMovements}
+            onPress={onOpenStrengthHistory}
             accessibilityRole="button"
-            accessibilityLabel="View all movements">
+            accessibilityLabel="View strength score history">
             <Text style={styles.progressStrengthOverviewMovementsBtnText}>›</Text>
           </TouchableOpacity>
         ) : null}

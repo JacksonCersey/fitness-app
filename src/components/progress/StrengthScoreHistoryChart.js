@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg';
 
@@ -16,33 +16,33 @@ function getNiceBounds(points) {
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
   if (minValue === maxValue) {
-    return { min: minValue - 1, max: maxValue + 1 };
+    return { min: Math.max(0, minValue - 5), max: maxValue + 5 };
   }
   const pad = Math.max(1, (maxValue - minValue) * 0.1);
-  return { min: minValue - pad, max: maxValue + pad };
+  return { min: Math.max(0, minValue - pad), max: maxValue + pad };
 }
 
-export default function WeightProgressChart({
-  points,
-  lineColor,
-  axisColor,
-  textColor,
-  pointColor,
-  showCaption = false,
-}) {
+/**
+ * @param {{
+ *   points: Array<{ value: number; timestamp?: number; label?: string }>;
+ *   lineColor: string;
+ *   axisColor: string;
+ *   textColor: string;
+ *   pointColor?: string;
+ * }} props
+ */
+function StrengthScoreHistoryChart({ points, lineColor, axisColor, textColor, pointColor }) {
   const chartW = Math.min(340, Math.max(260, Dimensions.get('window').width - 44));
-  const chartH = 174;
+  const chartH = 200;
   const innerW = chartW - PAD_LEFT - PAD_RIGHT;
   const innerH = chartH - PAD_TOP - PAD_BOTTOM;
-  const safePoints = (Array.isArray(points) ? points : []).filter(
-    (point) => Number.isFinite(point?.value) && point.value > 0,
-  );
+  const safePoints = (Array.isArray(points) ? points : []).filter((point) => Number.isFinite(point?.value));
 
   if (safePoints.length === 0) {
     return (
       <View style={styles.emptyWrap}>
         <Text style={[styles.emptyText, { color: textColor }]}>
-          No weight logs yet. Tap + to add your first entry.
+          Complete workouts to build your strength score history.
         </Text>
       </View>
     );
@@ -66,7 +66,7 @@ export default function WeightProgressChart({
     return { x, y, label: point.label, value: point.value };
   });
 
-  const strokeColor = lineColor || '#6366F1';
+  const strokeColor = lineColor;
   const yTicks = [max, min + (max - min) * 0.5, min];
 
   return (
@@ -142,11 +142,6 @@ export default function WeightProgressChart({
           );
         })}
       </Svg>
-      {showCaption ? (
-        <Text style={[styles.caption, { color: textColor }]}>
-          All saved weigh-ins in time order (lb). Along the bottom, dates use month/day (like 5/11). Tap + to add one.
-        </Text>
-      ) : null}
     </View>
   );
 }
@@ -154,12 +149,6 @@ export default function WeightProgressChart({
 const styles = StyleSheet.create({
   wrap: {
     alignSelf: 'stretch',
-  },
-  caption: {
-    marginTop: 4,
-    fontSize: 11,
-    lineHeight: 15,
-    opacity: 0.9,
   },
   emptyWrap: {
     paddingVertical: 18,
@@ -171,3 +160,4 @@ const styles = StyleSheet.create({
   },
 });
 
+export default memo(StrengthScoreHistoryChart);

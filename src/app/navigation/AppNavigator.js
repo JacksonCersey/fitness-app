@@ -3,7 +3,7 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useWorkoutTheme } from '../context/ThemeStylesContext';
 import { Animated, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MAIN_TAB_SCREEN_KEYS, isMoreHubSlideOverlay, shouldUseMoreHubSlideTransition } from '../../constants/layout';
+import { MAIN_TAB_SCREEN_KEYS, isMoreHubSlideOverlay, shouldUseSubscreenSlideTransition } from '../../constants/layout';
 import StreakScreen from '../../screens/StreakScreen';
 import MoreGoalsScreen from '../../screens/MoreGoalsScreen';
 import AppearanceScreen from '../../screens/AppearanceScreen';
@@ -11,6 +11,7 @@ import ProfileScreen from '../../screens/ProfileScreen';
 import SummaryScreen from '../../screens/SummaryScreen';
 import HistoryDayWorkoutsScreen from '../../screens/HistoryDayWorkoutsScreen';
 import StrengthMovementsScreen from '../../screens/StrengthMovementsScreen';
+import StrengthScoreHistoryScreen from '../../screens/StrengthScoreHistoryScreen';
 import WeeklySplitPlannerScreen from '../../screens/WeeklySplitPlannerScreen';
 import WorkoutScreen from '../../screens/WorkoutScreen';
 import { useActiveWorkout } from '../context/ActiveWorkoutContext';
@@ -260,9 +261,11 @@ function SubscreenLayer() {
     setProfileGoalDraft,
     handleSaveProfile,
     handleSaveGoalsOnly,
+    strengthScoreSummary,
   } = useAppStorage();
 
-  const { handleCloseSplitPlanner, handleCloseStrengthMovements } = useAppNavigation();
+  const { handleCloseSplitPlanner, handleCloseStrengthMovements, handleCloseStrengthScoreHistory } =
+    useAppNavigation();
 
   const {
     historyDayScreenTitle,
@@ -272,12 +275,13 @@ function SubscreenLayer() {
     handleReturnFromSubscreen,
   } = useHistoryProgress();
 
-  const useMoreHubSlide =
-    subNavigatorReturnRef.current === 'settings' &&
-    shouldUseMoreHubSlideTransition(currentScreen, 'settings');
+  const useSubscreenSlide = shouldUseSubscreenSlideTransition(
+    currentScreen,
+    subNavigatorReturnRef.current,
+  );
 
-  const wrapMoreHubSlide = (content) => {
-    if (!useMoreHubSlide) return content;
+  const wrapSubscreenSlide = (content) => {
+    if (!useSubscreenSlide) return content;
     return (
       <Animated.View
         style={[styles.subscreenFill, { transform: [{ translateX: moreSubscreenSlideX }] }]}>
@@ -287,7 +291,7 @@ function SubscreenLayer() {
   };
 
   if (currentScreen === 'splitPlanner') {
-    return wrapMoreHubSlide(
+    return wrapSubscreenSlide(
       <>
         <StatusBar barStyle="light-content" />
         <WeeklySplitPlannerScreen
@@ -301,7 +305,7 @@ function SubscreenLayer() {
   }
 
   if (currentScreen === 'strengthMovements') {
-    return wrapMoreHubSlide(
+    return wrapSubscreenSlide(
       <>
         <StatusBar barStyle="light-content" />
         <StrengthMovementsScreen
@@ -311,6 +315,19 @@ function SubscreenLayer() {
           exerciseLookup={exerciseLookup}
           favoriteMovements={favoriteMovements}
           onToggleFavoriteMovement={handleToggleFavoriteMovement}
+        />
+      </>,
+    );
+  }
+
+  if (currentScreen === 'strengthScoreHistory') {
+    return wrapSubscreenSlide(
+      <>
+        <StatusBar barStyle="light-content" />
+        <StrengthScoreHistoryScreen
+          screenTransitionOpacity={screenTransitionOpacity}
+          onBack={handleCloseStrengthScoreHistory}
+          summary={strengthScoreSummary}
         />
       </>,
     );
@@ -342,7 +359,7 @@ function SubscreenLayer() {
   }
 
   if (currentScreen === 'streak') {
-    return wrapMoreHubSlide(
+    return wrapSubscreenSlide(
       <StreakScreen
         screenTransitionOpacity={screenTransitionOpacity}
         onBack={handleReturnFromSubscreen}
@@ -355,7 +372,7 @@ function SubscreenLayer() {
   }
 
   if (currentScreen === 'moreGoals') {
-    return wrapMoreHubSlide(
+    return wrapSubscreenSlide(
       <MoreGoalsScreen
         screenTransitionOpacity={screenTransitionOpacity}
         onBack={handleReturnFromSubscreen}
@@ -367,13 +384,13 @@ function SubscreenLayer() {
   }
 
   if (currentScreen === 'appearance') {
-    return wrapMoreHubSlide(
+    return wrapSubscreenSlide(
       <AppearanceScreen screenTransitionOpacity={screenTransitionOpacity} onBack={handleReturnFromSubscreen} />,
     );
   }
 
   if (currentScreen === 'profile') {
-    return wrapMoreHubSlide(
+    return wrapSubscreenSlide(
       <ProfileScreen
         screenTransitionOpacity={screenTransitionOpacity}
         onBack={handleReturnFromSubscreen}
@@ -414,9 +431,9 @@ function SubscreenLayer() {
 export default function AppNavigator({ workoutStartRef }) {
   const { currentScreen, subNavigatorReturnRef } = useAppNavigation();
   const isMainTab = MAIN_TAB_SCREEN_KEYS.has(currentScreen);
-  const isMoreHubOverlay = isMoreHubSlideOverlay(currentScreen, subNavigatorReturnRef.current);
-  const keepMainTabsVisible = isMainTab || isMoreHubOverlay;
-  const mainTabsInteractive = keepMainTabsVisible && !isMoreHubOverlay;
+  const isSubscreenOverlay = isMoreHubSlideOverlay(currentScreen, subNavigatorReturnRef.current);
+  const keepMainTabsVisible = isMainTab || isSubscreenOverlay;
+  const mainTabsInteractive = keepMainTabsVisible && !isSubscreenOverlay;
 
   return (
     <View style={styles.root}>

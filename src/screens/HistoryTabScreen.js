@@ -3,11 +3,12 @@ import { useGameTheme, useStyles } from '../app/context/ThemeStylesContext';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import PastWorkoutsMonthCalendar from '../../components/PastWorkoutsMonthCalendar';
 import MonthlyVolumeChart from '../../components/MonthlyVolumeChart';
-import WeightProgressChart from '../../components/WeightProgressChart';
 import StrengthScoreCard from '../components/StrengthScoreCard';
 import ProgressStrengthScoreOverview from '../components/progress/ProgressStrengthScoreOverview';
 import ProgressOverviewStreakPanel from '../components/progress/ProgressOverviewStreakPanel';
 import ProgressOverviewAdherencePanel from '../components/progress/ProgressOverviewAdherencePanel';
+import ProgressStrengthScoreBodyPanel from '../components/progress/ProgressStrengthScoreBodyPanel';
+import ProgressBodyWeightSection from '../components/progress/ProgressBodyWeightSection';
 
 const PROGRESS_SECTIONS = [
   { id: 'overview', label: 'Overview' },
@@ -46,6 +47,7 @@ function HistoryTabScreen({
   consecutivePerfectWeekStreak,
   lifetimeVolumeLb,
   onOpenStrengthMovements,
+  onOpenStrengthScoreHistory,
   onOpenDayWorkouts,
 }) {
   const styles = useStyles();
@@ -100,7 +102,7 @@ function HistoryTabScreen({
           <>
             <ProgressStrengthScoreOverview
               summary={strengthScoreSummary}
-              onOpenMovements={onOpenStrengthMovements}
+              onOpenStrengthHistory={onOpenStrengthScoreHistory}
             />
 
             <ProgressOverviewStreakPanel
@@ -135,69 +137,18 @@ function HistoryTabScreen({
 
         {historyProgressSection === 'body' ? (
           <>
-            <View style={[styles.historyStatCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-              <View style={styles.historyWeightHeaderRow}>
-                <Text style={[styles.historyCardTitle, { color: theme.textPrimary, marginBottom: 0 }]}>Graph</Text>
-                <TouchableOpacity
-                  style={[styles.historyAddWeightButton, { borderColor: theme.inputBorder, backgroundColor: theme.inputBg }]}
-                  onPress={openWeightLogModal}
-                  accessibilityRole="button"
-                  accessibilityLabel="Add weight log">
-                  <Text style={[styles.historyAddWeightButtonText, { color: theme.textPrimary }]}>+</Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={[styles.historyStatCaption, { color: theme.textSecondary, marginBottom: 6 }]}>
-                Every weigh-in you have saved (left = earlier, right = newer). Along the bottom, dates look like 5/11
-                (month/day). If you have more than one year of logs, the year appears too (for example 5/11/25).
-              </Text>
-              <WeightProgressChart
-                points={historyWeightChartPoints}
-                lineColor={theme.accentSolid}
-                axisColor={theme.inputBorder}
-                textColor={theme.textSecondary}
-                pointColor="#FFFFFF"
-              />
-            </View>
+            <ProgressStrengthScoreBodyPanel
+              summary={strengthScoreSummary}
+              onOpenStrengthHistory={onOpenStrengthScoreHistory}
+            />
 
-            <View style={[styles.historyStatCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-              <Text style={[styles.historyCardTitle, { color: theme.textPrimary }]}>Entries</Text>
-              <View style={styles.historyWeightEntriesWrap}>
-                {historyAllWeightLogsSorted.length === 0 ? (
-                  <Text style={[styles.setText, { color: theme.textSecondary }]}>No weight entries yet.</Text>
-                ) : (
-                  historyAllWeightLogsSorted.map((entry) => {
-                    const d = new Date(entry.dateISO);
-                    const dLabel = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
-                    return (
-                      <View key={entry.id} style={styles.historyWeightEntryRow}>
-                        <View style={styles.historyWeightEntryTextBlock}>
-                          <Text style={[styles.historyWeightEntryValue, { color: theme.textPrimary }]}>
-                            {Math.round(Number(entry.weightLb) * 10) / 10} lb
-                          </Text>
-                          <Text style={[styles.historyWeightEntryDate, { color: theme.textSecondary }]}>{dLabel}</Text>
-                        </View>
-                        <View style={styles.historyWeightEntryActions}>
-                          <TouchableOpacity
-                            onPress={() => openWeightLogModalForEdit(entry)}
-                            style={[styles.historyWeightEntryActionBtn, { borderColor: theme.inputBorder }]}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Edit weight entry from ${dLabel}`}>
-                            <Text style={[styles.historyWeightEntryEditText, { color: theme.textPrimary }]}>Edit</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() => handleDeleteWeightLogEntry(entry.id)}
-                            style={[styles.historyWeightEntryActionBtn, { borderColor: theme.inputBorder }]}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Delete weight entry from ${dLabel}`}>
-                            <Text style={[styles.historyWeightEntryDeleteText, { color: theme.destructiveText }]}>Delete</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })
-                )}
-              </View>
-            </View>
+            <ProgressBodyWeightSection
+              openWeightLogModal={openWeightLogModal}
+              openWeightLogModalForEdit={openWeightLogModalForEdit}
+              historyWeightChartPoints={historyWeightChartPoints}
+              historyAllWeightLogsSorted={historyAllWeightLogsSorted}
+              handleDeleteWeightLogEntry={handleDeleteWeightLogEntry}
+            />
           </>
         ) : null}
 

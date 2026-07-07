@@ -54,6 +54,7 @@ function MainTabsNavigator({ workoutStartRef }) {
     handleOpenSplitPlannerFromMore,
     handleOpenStreakSubscreen,
     handleOpenAppearance,
+    handleOpenStrengthScoreHistory,
   } = useAppNavigation();
 
   const {
@@ -193,6 +194,7 @@ function MainTabsNavigator({ workoutStartRef }) {
       consecutivePerfectWeekStreak,
       lifetimeVolumeLb,
       onOpenStrengthMovements: handleOpenStrengthMovements,
+      onOpenStrengthScoreHistory: handleOpenStrengthScoreHistory,
       onOpenDayWorkouts: handleOpenHistoryDayDetail,
     }),
     [
@@ -225,6 +227,7 @@ function MainTabsNavigator({ workoutStartRef }) {
       openWeightLogModal,
       openWeightLogModalForEdit,
       handleOpenStrengthMovements,
+      handleOpenStrengthScoreHistory,
       handleOpenHistoryDayDetail,
       handleDeleteWeightLogEntry,
     ],
@@ -301,7 +304,7 @@ function MainTabsNavigator({ workoutStartRef }) {
   );
 
   const tabScreen = mainTabsDisplayedScreen;
-  const isMoreHubOverlay = isMoreHubSlideOverlay(currentScreen, subNavigatorReturnRef.current);
+  const isSubscreenOverlay = isMoreHubSlideOverlay(currentScreen, subNavigatorReturnRef.current);
 
   const mainTabsSafeAreaStyle = useMemo(() => {
     return tabScreen === 'menu' || tabScreen === 'history'
@@ -331,7 +334,7 @@ function MainTabsNavigator({ workoutStartRef }) {
         edges={['top', 'left', 'right']}
         safeAreaStyle={mainTabsSafeAreaStyle}
         contentShellBackgroundColor={mainTabsContentShellBackgroundColor}
-        screenTransitionOpacity={isMoreHubOverlay ? 1 : screenTransitionOpacity}
+        screenTransitionOpacity={isSubscreenOverlay ? 1 : screenTransitionOpacity}
         bottomEdgeFadeColor={mainTabsBottomFadeColor}
         bottomEdgeFadeHeight={mainTabsBottomFadeHeight}
         bottomBar={
