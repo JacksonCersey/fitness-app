@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FAVORITE_MOVEMENTS_STORAGE_KEY } from '../constants/storageKeys';
+import { resolveUserDataStorageKey } from '../app/storage/storageNamespace';
 
 /** @param {string} movementName */
 export function movementFavoriteKey(movementName) {
@@ -7,9 +8,10 @@ export function movementFavoriteKey(movementName) {
 }
 
 /** @returns {Promise<Set<string>>} */
-export async function loadFavoriteMovements() {
+export async function loadFavoriteMovements(devUserId = null) {
   try {
-    const raw = await AsyncStorage.getItem(FAVORITE_MOVEMENTS_STORAGE_KEY);
+    const key = resolveUserDataStorageKey(FAVORITE_MOVEMENTS_STORAGE_KEY, devUserId);
+    const raw = await AsyncStorage.getItem(key);
     if (!raw) return new Set();
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return new Set();
@@ -21,10 +23,11 @@ export async function loadFavoriteMovements() {
 }
 
 /** @param {Set<string>} favorites */
-export async function saveFavoriteMovements(favorites) {
+export async function saveFavoriteMovements(favorites, devUserId = null) {
   try {
     const list = [...favorites].sort((a, b) => a.localeCompare(b));
-    await AsyncStorage.setItem(FAVORITE_MOVEMENTS_STORAGE_KEY, JSON.stringify(list));
+    const key = resolveUserDataStorageKey(FAVORITE_MOVEMENTS_STORAGE_KEY, devUserId);
+    await AsyncStorage.setItem(key, JSON.stringify(list));
   } catch (error) {
     console.warn('Failed to save favorite movements', error);
   }

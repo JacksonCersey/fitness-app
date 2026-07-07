@@ -10,6 +10,7 @@ import {
   WEIGHT_LOGS_STORAGE_KEY,
   WEEKLY_SPLIT_PLAN_STORAGE_KEY,
 } from '../../constants/storageKeys';
+import { resolveUserDataStorageKey } from './storageNamespace';
 
 /** Flip to true to wipe saved data once on the next app launch (for testing / fresh start). */
 export const WIPE_USER_DATA_ON_NEXT_LAUNCH = true;
@@ -50,21 +51,23 @@ export async function runScheduledUserDataWipeIfNeeded() {
   }
 }
 
-export async function saveHistoryToStorage(historyArray) {
+export async function saveHistoryToStorage(historyArray, devUserId = null) {
   if (__DEV__) {
     console.log('Saving history to AsyncStorage...');
   }
-  await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(historyArray));
+  const key = resolveUserDataStorageKey(HISTORY_STORAGE_KEY, devUserId);
+  await AsyncStorage.setItem(key, JSON.stringify(historyArray));
   if (__DEV__) {
     console.log(`Saved ${historyArray.length} workouts to AsyncStorage`);
   }
 }
 
-export async function loadHistoryFromStorage() {
+export async function loadHistoryFromStorage(devUserId = null) {
   if (__DEV__) {
     console.log('Loading history from AsyncStorage...');
   }
-  const savedHistoryJson = await AsyncStorage.getItem(HISTORY_STORAGE_KEY);
+  const key = resolveUserDataStorageKey(HISTORY_STORAGE_KEY, devUserId);
+  const savedHistoryJson = await AsyncStorage.getItem(key);
   if (!savedHistoryJson) return [];
 
   const parsedHistory = JSON.parse(savedHistoryJson);
@@ -72,12 +75,14 @@ export async function loadHistoryFromStorage() {
   return parsedHistory;
 }
 
-export async function saveWeightLogsToStorage(logsArray) {
-  await AsyncStorage.setItem(WEIGHT_LOGS_STORAGE_KEY, JSON.stringify(logsArray));
+export async function saveWeightLogsToStorage(logsArray, devUserId = null) {
+  const key = resolveUserDataStorageKey(WEIGHT_LOGS_STORAGE_KEY, devUserId);
+  await AsyncStorage.setItem(key, JSON.stringify(logsArray));
 }
 
-export async function loadWeightLogsFromStorage() {
-  const raw = await AsyncStorage.getItem(WEIGHT_LOGS_STORAGE_KEY);
+export async function loadWeightLogsFromStorage(devUserId = null) {
+  const key = resolveUserDataStorageKey(WEIGHT_LOGS_STORAGE_KEY, devUserId);
+  const raw = await AsyncStorage.getItem(key);
   if (!raw) return [];
   const parsed = JSON.parse(raw);
   if (!Array.isArray(parsed)) return [];

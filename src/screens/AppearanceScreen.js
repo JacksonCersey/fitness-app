@@ -53,7 +53,14 @@ function ThemePreviewCard({ label, description, selected, onPress, previewColors
 function AppearanceScreen({ screenTransitionOpacity, onBack }) {
   const styles = useStyles();
   const theme = useGameTheme();
-  const { theme: themePreference, setTheme, resetAllUserData } = useAppStorage();
+  const {
+    theme: themePreference,
+    setTheme,
+    resetAllUserData,
+    activeDevUserId,
+    devUserOptions,
+    switchDevUser,
+  } = useAppStorage();
 
   const handleResetAllData = () => {
     Alert.alert(
@@ -140,6 +147,53 @@ function AppearanceScreen({ screenTransitionOpacity, onBack }) {
             accessibilityLabel="Reset all app data">
             <Text style={[styles.menuPrimaryButtonText, { color: theme.primaryButtonText }]}>Reset all app data</Text>
           </TouchableOpacity>
+
+          {__DEV__ ? (
+            <>
+              <Text style={[styles.menuMoreBodyText, { marginTop: 28, marginBottom: 8 }]}>
+                Dev: test users
+              </Text>
+              <Text style={[styles.menuMoreBodyText, { marginBottom: 12 }]}>
+                Switch between saved personas to preview the app with different workout data. Your real data stays
+                separate under &quot;My data&quot;.
+              </Text>
+              {devUserOptions.map((option) => {
+                const isSelected = (activeDevUserId ?? null) === (option.id ?? null);
+                return (
+                  <TouchableOpacity
+                    key={option.id ?? 'real'}
+                    style={[
+                      styles.profileCard,
+                      {
+                        marginBottom: 10,
+                        borderColor: isSelected ? theme.accentSolid : theme.cardBorder,
+                        borderWidth: isSelected ? 2 : 1,
+                      },
+                    ]}
+                    onPress={() => {
+                      switchDevUser(option.id).catch((error) => {
+                        console.warn('Dev user switch failed', error);
+                      });
+                    }}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                    accessibilityLabel={`Switch to ${option.label}`}>
+                    <Text style={[styles.menuMoreLinkTitle, { color: theme.textPrimary }]}>{option.label}</Text>
+                    <Text style={[styles.menuMoreLinkSubtitle, { color: theme.textMuted }]}>{option.description}</Text>
+                    {isSelected ? (
+                      <Text
+                        style={[
+                          styles.menuMoreLinkSubtitle,
+                          { color: theme.accentSolid, marginTop: 8, fontWeight: '700' },
+                        ]}>
+                        Active
+                      </Text>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </>
+          ) : null}
         </ScrollView>
       </Animated.View>
     </SafeAreaView>

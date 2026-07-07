@@ -18,6 +18,7 @@ import {
   STRENGTH_SCORE_DISPLAYED_KEY,
   ONBOARDING_COMPLETED_STORAGE_KEY,
 } from '../../constants/storageKeys';
+import { getDevUserOptions } from '../../data/devFixtures/devUsers';
 import { computeStrengthScoreSummary } from '../../data/strengthScore';
 import {
   getDefaultWeeklySplitPlan,
@@ -54,6 +55,14 @@ import {
   runScheduledUserDataWipeIfNeeded,
 } from '../storage/persistedStorage';
 import { getAppThemeColors } from '../theme/appThemeColors';
+import {
+  loadActiveDevUserId,
+  loadUserDataSnapshot,
+  resetAndSeedDevUserSnapshot,
+  saveActiveDevUserId,
+  saveUserDataSnapshot,
+} from '../storage/devUserStorage';
+import { resolveUserDataStorageKey } from '../storage/storageNamespace';
 
 const AppStorageContext = createContext(null);
 
@@ -87,7 +96,11 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [hasLoadedOnboarding, setHasLoadedOnboarding] = useState(false);
   const [storageBootstrapDone, setStorageBootstrapDone] = useState(false);
+  const [devUserContextReady, setDevUserContextReady] = useState(!__DEV__);
+  const [activeDevUserId, setActiveDevUserId] = useState(null);
   const strengthScorePersistedRef = useRef(null);
+  const activeDevUserIdRef = useRef(null);
+  const isApplyingDevSwitchRef = useRef(false);
 
   useEffect(() => {
     async function bootstrapStorage() {
@@ -102,6 +115,29 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
 
     bootstrapStorage();
   }, []);
+
+  useEffect(() => {
+    if (!storageBootstrapDone || !__DEV__) return;
+
+    async function initDevUserContext() {
+      try {
+        const savedDevUserId = await loadActiveDevUserId();
+        activeDevUserIdRef.current = savedDevUserId;
+        setActiveDevUserId(savedDevUserId);
+        if (savedDevUserId) {
+          await resetAndSeedDevUserSnapshot(savedDevUserId);
+        }
+      } catch (error) {
+        console.warn('Failed to init dev user context', error);
+      } finally {
+        setDevUserContextReady(true);
+      }
+    }
+
+    initDevUserContext();
+  }, [storageBootstrapDone]);
+
+  const devUserOptions = useMemo(() => (__DEV__ ? getDevUserOptions() : []), []);
 
   const hasLoadedInitialData =
     hasLoadedHistory &&
@@ -125,11 +161,11 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
   const colors = useMemo(() => getAppThemeColors(isLightTheme), [isLightTheme]);
 
   useEffect(() => {
-    if (!storageBootstrapDone) return;
+    if (!storageBootstrapDone || !devUserContextReady) return;
 
     async function loadWorkoutHistory() {
       try {
-        const loadedHistory = await loadHistoryFromStorage();
+        const loadedHistory = await loadHistoryFromStorage(activeDevUserIdRef.current);
         setWorkoutHistory(loadedHistory);
         if (__DEV__) {
           console.log(`Number of workouts loaded: ${loadedHistory.length}`);
@@ -142,24 +178,28 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
     }
 
     loadWorkoutHistory();
-  }, [storageBootstrapDone]);
+  }, [storageBootstrapDone, devUserContextReady]);
 
   useEffect(() => {
-    if (!storageBootstrapDone) return;
+    if (!storageBootstrapDone || !devUserContextReady) return;
 
     async function loadFavorites() {
-      const loaded = await loadFavoriteMovements();
+      const loaded = await loadFavoriteMovements(activeDevUserIdRef.current);
       setFavoriteMovements(loaded);
     }
     loadFavorites();
-  }, [storageBootstrapDone]);
+  }, [storageBootstrapDone, devUserContextReady]);
 
   useEffect(() => {
-    if (!storageBootstrapDone) return;
+    if (!storageBootstrapDone || !devUserContextReady) return;
 
     async function loadStrengthScoreDisplayed() {
       try {
-        const raw = await AsyncStorage.getItem(STRENGTH_SCORE_DISPLAYED_KEY);
+        const key = resolveUserDataStorageKey(
+          STRENGTH_SCORE_DISPLAYED_KEY,
+          activeDevUserIdRef.current,
+        );
+        const raw = await AsyncStorage.getItem(key);
         if (raw == null) return;
         const n = Number.parseFloat(raw);
         if (Number.isFinite(n) && n >= 0) strengthScorePersistedRef.current = n;
@@ -168,14 +208,14 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
       }
     }
     loadStrengthScoreDisplayed();
-  }, [storageBootstrapDone]);
+  }, [storageBootstrapDone, devUserContextReady]);
 
   useEffect(() => {
-    if (!storageBootstrapDone) return;
+    if (!storageBootstrapDone || !devUserContextReady) return;
 
     async function loadWeightLogs() {
       try {
-        const loadedLogs = await loadWeightLogsFromStorage();
+        const loadedLogs = await loadWeightLogsFromStorage(activeDevUserIdRef.current);
         setWeightLogs(loadedLogs);
       } catch (error) {
         console.warn('Failed to load weight logs', error);
@@ -185,14 +225,18 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
     }
 
     loadWeightLogs();
-  }, [storageBootstrapDone]);
+  }, [storageBootstrapDone, devUserContextReady]);
 
   useEffect(() => {
-    if (!storageBootstrapDone) return;
+    if (!storageBootstrapDone || !devUserContextReady) return;
 
     async function loadWeeklySplitPlan() {
       try {
-        const raw = await AsyncStorage.getItem(WEEKLY_SPLIT_PLAN_STORAGE_KEY);
+        const splitKey = resolveUserDataStorageKey(
+          WEEKLY_SPLIT_PLAN_STORAGE_KEY,
+          activeDevUserIdRef.current,
+        );
+        const raw = await AsyncStorage.getItem(splitKey);
         if (raw) {
           const parsed = JSON.parse(raw);
           setWeeklySplitPlan(normalizeWeeklySplitPlan(parsed));
@@ -205,7 +249,7 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
     }
 
     loadWeeklySplitPlan();
-  }, [storageBootstrapDone]);
+  }, [storageBootstrapDone, devUserContextReady]);
 
   useEffect(() => {
     if (!storageBootstrapDone) return;
@@ -227,11 +271,15 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
   }, [storageBootstrapDone]);
 
   useEffect(() => {
-    if (!storageBootstrapDone) return;
+    if (!storageBootstrapDone || !devUserContextReady) return;
 
     async function loadProfile() {
       try {
-        const savedProfileName = await AsyncStorage.getItem(PROFILE_NAME_STORAGE_KEY);
+        const profileNameKey = resolveUserDataStorageKey(
+          PROFILE_NAME_STORAGE_KEY,
+          activeDevUserIdRef.current,
+        );
+        const savedProfileName = await AsyncStorage.getItem(profileNameKey);
         if (savedProfileName) {
           setProfileName(savedProfileName);
           setProfileNameDraft(savedProfileName);
@@ -240,7 +288,11 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
         console.warn('Failed to load profile name', error);
       }
       try {
-        const savedBodyRaw = await AsyncStorage.getItem(PROFILE_BODY_STORAGE_KEY);
+        const profileBodyKey = resolveUserDataStorageKey(
+          PROFILE_BODY_STORAGE_KEY,
+          activeDevUserIdRef.current,
+        );
+        const savedBodyRaw = await AsyncStorage.getItem(profileBodyKey);
         if (savedBodyRaw) {
           const body = JSON.parse(savedBodyRaw);
           const hin = typeof body.heightIn === 'number' ? body.heightIn : null;
@@ -267,14 +319,18 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
     }
 
     loadProfile();
-  }, [storageBootstrapDone]);
+  }, [storageBootstrapDone, devUserContextReady]);
 
   useEffect(() => {
     if (!hasLoadedInitialData || hasLoadedOnboarding) return;
 
     async function resolveOnboardingStatus() {
       try {
-        const flag = await AsyncStorage.getItem(ONBOARDING_COMPLETED_STORAGE_KEY);
+        const onboardingKey = resolveUserDataStorageKey(
+          ONBOARDING_COMPLETED_STORAGE_KEY,
+          activeDevUserIdRef.current,
+        );
+        const flag = await AsyncStorage.getItem(onboardingKey);
         if (flag === 'true') {
           setOnboardingComplete(true);
           return;
@@ -288,7 +344,7 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
           profileGoalWeightLb != null;
 
         if (hasExistingData) {
-          await AsyncStorage.setItem(ONBOARDING_COMPLETED_STORAGE_KEY, 'true');
+          await AsyncStorage.setItem(onboardingKey, 'true');
           setOnboardingComplete(true);
           return;
         }
@@ -315,11 +371,11 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
   ]);
 
   useEffect(() => {
-    if (!hasLoadedHistory) return;
+    if (!hasLoadedHistory || isApplyingDevSwitchRef.current) return;
 
     async function persistHistory() {
       try {
-        await saveHistoryToStorage(workoutHistory);
+        await saveHistoryToStorage(workoutHistory, activeDevUserIdRef.current);
       } catch (error) {
         console.warn('Failed to auto-save workout history', error);
       }
@@ -329,11 +385,11 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
   }, [workoutHistory, hasLoadedHistory]);
 
   useEffect(() => {
-    if (!hasLoadedWeightLogs) return;
+    if (!hasLoadedWeightLogs || isApplyingDevSwitchRef.current) return;
 
     async function persistWeightLogs() {
       try {
-        await saveWeightLogsToStorage(weightLogs);
+        await saveWeightLogsToStorage(weightLogs, activeDevUserIdRef.current);
       } catch (error) {
         console.warn('Failed to auto-save weight logs', error);
       }
@@ -343,11 +399,15 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
   }, [weightLogs, hasLoadedWeightLogs]);
 
   useEffect(() => {
-    if (!hasLoadedWeeklySplitPlan) return;
+    if (!hasLoadedWeeklySplitPlan || isApplyingDevSwitchRef.current) return;
 
     async function persistWeeklySplitPlan() {
       try {
-        await AsyncStorage.setItem(WEEKLY_SPLIT_PLAN_STORAGE_KEY, JSON.stringify(weeklySplitPlan));
+        const splitKey = resolveUserDataStorageKey(
+          WEEKLY_SPLIT_PLAN_STORAGE_KEY,
+          activeDevUserIdRef.current,
+        );
+        await AsyncStorage.setItem(splitKey, JSON.stringify(weeklySplitPlan));
       } catch (error) {
         console.warn('Failed to save weekly split plan', error);
       }
@@ -436,7 +496,11 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
     const next = strengthScoreSummary.overallScore;
     if (strengthScorePersistedRef.current === next) return;
     strengthScorePersistedRef.current = next;
-    AsyncStorage.setItem(STRENGTH_SCORE_DISPLAYED_KEY, String(next)).catch((error) => {
+    const strengthKey = resolveUserDataStorageKey(
+      STRENGTH_SCORE_DISPLAYED_KEY,
+      activeDevUserIdRef.current,
+    );
+    AsyncStorage.setItem(strengthKey, String(next)).catch((error) => {
       console.warn('Failed to save strength score', error);
     });
   }, [strengthScoreSummary.hasData, strengthScoreSummary.overallScore]);
@@ -490,7 +554,7 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
   const handleToggleFavoriteMovement = useCallback((movementName) => {
     setFavoriteMovements((prev) => {
       const next = toggleFavoriteMovement(prev, movementName);
-      saveFavoriteMovements(next).catch((error) => {
+      saveFavoriteMovements(next, activeDevUserIdRef.current).catch((error) => {
         console.warn('Failed to save favorite movements', error);
       });
       return next;
@@ -527,6 +591,98 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
     ]);
   }, []);
 
+  const applySnapshotToState = useCallback((snapshot) => {
+    isApplyingDevSwitchRef.current = true;
+    strengthScorePersistedRef.current = snapshot.strengthScoreDisplayed;
+
+    const cleanName = snapshot.profileName ?? '';
+    setProfileName(cleanName);
+    setProfileNameDraft(cleanName);
+    setProfileHeightIn(snapshot.profileHeightIn);
+    setProfileGoalWeightLb(snapshot.profileGoalWeightLb);
+    {
+      const heightPick =
+        snapshot.profileHeightIn != null
+          ? inchesToProfileHeightPickers(snapshot.profileHeightIn)
+          : inchesToProfileHeightPickers(null);
+      setProfileHeightPickFeet(heightPick.feet);
+      setProfileHeightPickInches(heightPick.inches);
+    }
+    setProfileGoalDraft(
+      snapshot.profileGoalWeightLb != null
+        ? String(Math.round(snapshot.profileGoalWeightLb * 100) / 100)
+        : '',
+    );
+    setProfileHeightEditorOpen(false);
+    setWorkoutHistory(Array.isArray(snapshot.workoutHistory) ? snapshot.workoutHistory : []);
+    setWeightLogs(Array.isArray(snapshot.weightLogs) ? snapshot.weightLogs : []);
+    setWeeklySplitPlan(normalizeWeeklySplitPlan(snapshot.weeklySplitPlan));
+    setFavoriteMovements(new Set(snapshot.favoriteMovements ?? []));
+    setOnboardingComplete(Boolean(snapshot.onboardingComplete));
+    setHasLoadedOnboarding(true);
+
+    setTimeout(() => {
+      isApplyingDevSwitchRef.current = false;
+    }, 0);
+  }, []);
+
+  const captureCurrentSnapshot = useCallback(
+    () => ({
+      profileName,
+      profileHeightIn,
+      profileGoalWeightLb,
+      workoutHistory,
+      weightLogs,
+      weeklySplitPlan,
+      favoriteMovements: [...favoriteMovements],
+      onboardingComplete,
+      strengthScoreDisplayed: strengthScorePersistedRef.current,
+    }),
+    [
+      profileName,
+      profileHeightIn,
+      profileGoalWeightLb,
+      workoutHistory,
+      weightLogs,
+      weeklySplitPlan,
+      favoriteMovements,
+      onboardingComplete,
+    ],
+  );
+
+  const switchDevUser = useCallback(
+    async (nextUserId) => {
+      if (!__DEV__) return;
+
+      const outgoingUserId = activeDevUserIdRef.current;
+      try {
+        isApplyingDevSwitchRef.current = true;
+        await saveHistoryToStorage(workoutHistory, outgoingUserId);
+        await saveWeightLogsToStorage(weightLogs, outgoingUserId);
+        await saveUserDataSnapshot(outgoingUserId, captureCurrentSnapshot());
+
+        activeDevUserIdRef.current = nextUserId;
+        setActiveDevUserId(nextUserId);
+        await saveActiveDevUserId(nextUserId);
+
+        const snapshot = !nextUserId
+          ? await loadUserDataSnapshot(null)
+          : await resetAndSeedDevUserSnapshot(nextUserId);
+
+        applySnapshotToState(snapshot);
+        if (__DEV__) {
+          const label = nextUserId ?? 'real data';
+          console.log(`[Dev] Switched to user: ${label} (fresh dates)`);
+        }
+      } catch (error) {
+        isApplyingDevSwitchRef.current = false;
+        console.warn('Failed to switch dev user', error);
+        Alert.alert('Switch failed', 'Could not load that test user. Try again.');
+      }
+    },
+    [workoutHistory, weightLogs, captureCurrentSnapshot, applySnapshotToState],
+  );
+
   const resetAllUserData = useCallback(async () => {
     await clearAllUserData();
     strengthScorePersistedRef.current = null;
@@ -548,7 +704,11 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
   }, []);
 
   const completeOnboarding = useCallback(async () => {
-    await AsyncStorage.setItem(ONBOARDING_COMPLETED_STORAGE_KEY, 'true');
+    const onboardingKey = resolveUserDataStorageKey(
+      ONBOARDING_COMPLETED_STORAGE_KEY,
+      activeDevUserIdRef.current,
+    );
+    await AsyncStorage.setItem(onboardingKey, 'true');
     setOnboardingComplete(true);
   }, []);
 
@@ -561,8 +721,17 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
         goalWeightLb,
       };
 
-      await AsyncStorage.setItem(PROFILE_NAME_STORAGE_KEY, cleanName);
-      await AsyncStorage.setItem(PROFILE_BODY_STORAGE_KEY, JSON.stringify(body));
+      const profileNameKey = resolveUserDataStorageKey(
+        PROFILE_NAME_STORAGE_KEY,
+        activeDevUserIdRef.current,
+      );
+      const profileBodyKey = resolveUserDataStorageKey(
+        PROFILE_BODY_STORAGE_KEY,
+        activeDevUserIdRef.current,
+      );
+
+      await AsyncStorage.setItem(profileNameKey, cleanName);
+      await AsyncStorage.setItem(profileBodyKey, JSON.stringify(body));
 
       setProfileName(cleanName);
       setProfileNameDraft(cleanName);
@@ -631,8 +800,17 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
     };
 
     try {
-      await AsyncStorage.setItem(PROFILE_NAME_STORAGE_KEY, cleanName);
-      await AsyncStorage.setItem(PROFILE_BODY_STORAGE_KEY, JSON.stringify(body));
+      const profileNameKey = resolveUserDataStorageKey(
+        PROFILE_NAME_STORAGE_KEY,
+        activeDevUserIdRef.current,
+      );
+      const profileBodyKey = resolveUserDataStorageKey(
+        PROFILE_BODY_STORAGE_KEY,
+        activeDevUserIdRef.current,
+      );
+
+      await AsyncStorage.setItem(profileNameKey, cleanName);
+      await AsyncStorage.setItem(profileBodyKey, JSON.stringify(body));
       setProfileName(cleanName);
       setProfileHeightIn(parsedHeightIn);
       setProfileGoalWeightLb(goalRes.value);
@@ -669,7 +847,11 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
       goalVal = n;
     }
     try {
-      const savedBodyRaw = await AsyncStorage.getItem(PROFILE_BODY_STORAGE_KEY);
+      const profileBodyKey = resolveUserDataStorageKey(
+        PROFILE_BODY_STORAGE_KEY,
+        activeDevUserIdRef.current,
+      );
+      const savedBodyRaw = await AsyncStorage.getItem(profileBodyKey);
       let body = {
         heightIn: profileHeightIn,
         weightLb: null,
@@ -687,7 +869,7 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
           goalWeightLb: goalVal,
         };
       }
-      await AsyncStorage.setItem(PROFILE_BODY_STORAGE_KEY, JSON.stringify(body));
+      await AsyncStorage.setItem(profileBodyKey, JSON.stringify(body));
       setProfileGoalWeightLb(goalVal);
       setProfileGoalDraft(goalVal != null ? String(Math.round(goalVal * 100) / 100) : '');
       Alert.alert('Saved', 'Your goal weight was updated.');
@@ -748,6 +930,9 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
       onboardingComplete,
       completeOnboarding,
       saveOnboardingProfile,
+      activeDevUserId,
+      devUserOptions,
+      switchDevUser,
       resetAllUserData,
       addWeightLogEntry,
     }),
@@ -791,6 +976,9 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
       onboardingComplete,
       completeOnboarding,
       saveOnboardingProfile,
+      activeDevUserId,
+      devUserOptions,
+      switchDevUser,
       resetAllUserData,
       addWeightLogEntry,
     ],
