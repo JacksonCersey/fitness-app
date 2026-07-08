@@ -1697,7 +1697,7 @@ export function createMenuLayoutProfileStyles(theme) {
   },
   onboardingScreen: {
     flex: 1,
-    backgroundColor: t.navBack,
+    backgroundColor: t.screenBg,
   },
   onboardingScrollContent: {
     flexGrow: 1,

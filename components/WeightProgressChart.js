@@ -1,6 +1,7 @@
 import React from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg';
+import { GAME_THEME_DARK } from '../src/theme/gameTheme';
 
 const PAD_LEFT = 34;
 const PAD_RIGHT = 10;
@@ -66,7 +67,7 @@ export default function WeightProgressChart({
     return { x, y, label: point.label, value: point.value };
   });
 
-  const strokeColor = lineColor || '#6366F1';
+  const strokeColor = lineColor || GAME_THEME_DARK.navAccent;
   const yTicks = [max, min + (max - min) * 0.5, min];
 
   return (

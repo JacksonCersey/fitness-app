@@ -35,7 +35,7 @@ function WeeklySplitProgressRing({
     : isComplete
       ? DEFAULT_STREAK_ORANGE
       : progressColor;
-  const textColor = isPerfectStreakActive ? SHARED_ACCENTS.secondaryButtonBg : isComplete ? DEFAULT_STREAK_ORANGE : centerTextColor;
+  const textColor = isPerfectStreakActive ? SHARED_ACCENTS.navAccent : isComplete ? DEFAULT_STREAK_ORANGE : centerTextColor;
   const captionColor = workoutsLabelColor ?? textColor;
   const workoutWord = target === 1 ? 'workout' : 'workouts';
 
