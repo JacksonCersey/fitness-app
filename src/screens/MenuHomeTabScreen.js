@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useMemo, useState, useRef } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Animated, View } from 'react-native';
 import { useStyles } from '../app/context/ThemeStylesContext';
 import {
   getSplitDaySessionTitle,
@@ -27,6 +27,7 @@ function MenuHomeTabScreen({
 }) {
   const styles = useStyles();
   const levelSelectRef = useRef(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
   const [selectedDate, setSelectedDate] = useState(() => startOfLocalDay(new Date()));
   const [isLevelSelectScrolledFromToday, setIsLevelSelectScrolledFromToday] = useState(false);
 
@@ -40,6 +41,22 @@ function MenuHomeTabScreen({
     levelSelectRef.current?.scrollToToday();
     setIsLevelSelectScrolledFromToday(false);
   }, []);
+
+  const handleScroll = useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+        useNativeDriver: true,
+      }),
+    [scrollY],
+  );
+
+  const stickyLevelStyle = useMemo(
+    () => ({
+      // Cancel ScrollView motion so levels/glow stay put while the sheet covers them.
+      transform: [{ translateY: scrollY }],
+    }),
+    [scrollY],
+  );
 
   const showBackToToday = !isTodayLocalDay(selectedDate) || isLevelSelectScrolledFromToday;
 
@@ -59,14 +76,17 @@ function MenuHomeTabScreen({
         />
       </View>
       <View style={styles.homeScreenScrollWrap}>
-        <ScrollView
+        <Animated.ScrollView
           style={styles.homeScreenScroll}
           contentContainerStyle={[
             styles.homeScreenContent,
             styles.homeScreenContentGrow,
           ]}
-          showsVerticalScrollIndicator={false}>
-          <View style={styles.homeGamifiedSection}>
+          showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={handleScroll}>
+          {/* Levels + glow stay visually fixed; counter-scroll cancels the ScrollView motion. */}
+          <Animated.View style={[styles.homeGamifiedSection, stickyLevelStyle]}>
             <HomeWorkoutLevelSelect
               ref={levelSelectRef}
               selectedDate={selectedDate}
@@ -76,10 +96,12 @@ function MenuHomeTabScreen({
               workoutHistory={workoutHistory}
               exerciseLookup={exerciseLookup}
             />
-          </View>
+          </Animated.View>
 
           <View style={styles.homeBodyPanelWrap}>
-            <HomeBodyPanelGlow />
+            <Animated.View style={stickyLevelStyle} pointerEvents="none">
+              <HomeBodyPanelGlow />
+            </Animated.View>
             <View style={[styles.homeBodyPanel, { paddingBottom: mainTabBottomReserve + 24 }]}>
               <HomeStatsBar
                 strengthScore={strengthScoreSummary?.overallScore}
@@ -103,7 +125,7 @@ function MenuHomeTabScreen({
               />
             </View>
           </View>
-        </ScrollView>
+        </Animated.ScrollView>
       </View>
     </View>
   );

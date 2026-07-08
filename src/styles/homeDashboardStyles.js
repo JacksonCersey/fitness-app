@@ -7,6 +7,7 @@ export function createHomeDashboardStyles(theme) {
     homeScreenScrollWrap: {
       flex: 1,
       backgroundColor: theme.screenBg,
+      overflow: 'hidden',
     },
     homeScreenScroll: {
       flex: 1,
@@ -81,17 +82,20 @@ export function createHomeDashboardStyles(theme) {
       color: theme.navAccent,
     },
     homeGamifiedSection: {
+      position: 'relative',
+      zIndex: 0,
       paddingHorizontal: 16,
       paddingTop: 58,
       paddingBottom: 28,
-      backgroundColor: theme.screenBg,
+      backgroundColor: 'transparent',
       overflow: 'visible',
     },
     homeBodyPanelWrap: {
       flexGrow: 1,
       position: 'relative',
+      zIndex: 2,
       overflow: 'visible',
-      backgroundColor: theme.screenBg,
+      backgroundColor: 'transparent',
     },
     homeBodyPanelGlow: {
       position: 'absolute',
@@ -118,7 +122,7 @@ export function createHomeDashboardStyles(theme) {
       shadowOffset: { width: 0, height: -4 },
       shadowOpacity: 0.18,
       shadowRadius: 12,
-      elevation: 6,
+      elevation: 8,
     },
     homeDateStripWrap: {
       width: '100%',
