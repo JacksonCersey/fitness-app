@@ -1,7 +1,9 @@
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import { Alert, Text, TouchableOpacity, View } from 'react-native';
 import { useGameTheme, useStyles } from '../../app/context/ThemeStylesContext';
-import StrengthScoreSparkline from './StrengthScoreSparkline';
+import { filterPointsByChartRange } from '../../utils/chartTimeRange';
+import ProgressChartRangeFilter from './ProgressChartRangeFilter';
+import StrengthScoreHistoryChart from './StrengthScoreHistoryChart';
 
 function showStrengthScoreExplainer() {
   Alert.alert(
@@ -14,15 +16,20 @@ function showStrengthScoreExplainer() {
 /**
  * @param {{
  *   summary: import('../../data/strengthScore').StrengthScoreSummary | null;
- *   onOpenStrengthHistory?: () => void;
  * }} props
  */
-function ProgressStrengthScoreBodyPanel({ summary, onOpenStrengthHistory }) {
+function ProgressStrengthScoreBodyPanel({ summary }) {
   const styles = useStyles();
   const theme = useGameTheme();
+  const [chartRange, setChartRange] = useState('all');
   const handleShowExplainer = useCallback(() => {
     showStrengthScoreExplainer();
   }, []);
+
+  const filteredHistory = useMemo(
+    () => filterPointsByChartRange(summary?.overallScoreHistory ?? [], chartRange),
+    [summary?.overallScoreHistory, chartRange],
+  );
 
   if (!summary) return null;
 
@@ -39,38 +46,18 @@ function ProgressStrengthScoreBodyPanel({ summary, onOpenStrengthHistory }) {
     <View style={styles.progressStrengthBodyCard}>
       <View style={styles.progressStrengthBodyHeaderRow}>
         <Text style={styles.progressStrengthOverviewTitle}>Strength Score</Text>
-        <View style={styles.progressStrengthBodyHeaderActions}>
-          <TouchableOpacity
-            style={styles.progressStrengthBodyInfoBtn}
-            onPress={handleShowExplainer}
-            accessibilityRole="button"
-            accessibilityLabel="How strength score works">
-            <Text style={styles.progressStrengthBodyInfoBtnText}>i</Text>
-          </TouchableOpacity>
-          {onOpenStrengthHistory ? (
-            <TouchableOpacity
-              style={styles.progressStrengthOverviewMovementsBtn}
-              onPress={onOpenStrengthHistory}
-              accessibilityRole="button"
-              accessibilityLabel="View strength score history">
-              <Text style={styles.progressStrengthOverviewMovementsBtnText}>›</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
+        <TouchableOpacity
+          style={styles.progressStrengthBodyInfoBtn}
+          onPress={handleShowExplainer}
+          accessibilityRole="button"
+          accessibilityLabel="How strength score works">
+          <Text style={styles.progressStrengthBodyInfoBtnText}>i</Text>
+        </TouchableOpacity>
       </View>
 
       {summary.hasData ? (
         <>
-          <View style={styles.progressStrengthBodyMainRow}>
-            <Text style={styles.progressStrengthBodyValue}>{summary.overallScore}</Text>
-            <View style={styles.progressStrengthBodySparklineCol}>
-              <StrengthScoreSparkline
-                scores={summary.recentOverallScores}
-                trendDelta={summary.trendDelta}
-                wide
-              />
-            </View>
-          </View>
+          <Text style={styles.progressStrengthBodyValue}>{summary.overallScore}</Text>
 
           <View style={styles.progressStrengthBodyMetaRow}>
             <View style={[styles.progressStrengthBodyLevelPill, { backgroundColor: theme.navAccent }]}>
@@ -88,6 +75,21 @@ function ProgressStrengthScoreBodyPanel({ summary, onOpenStrengthHistory }) {
               </Text>
             </View>
           </View>
+
+          <ProgressChartRangeFilter value={chartRange} onChange={setChartRange} />
+
+          <StrengthScoreHistoryChart
+            points={filteredHistory}
+            lineColor={theme.navAccent}
+            axisColor={theme.borderSubtle}
+            textColor={theme.textMuted}
+            pointColor={theme.navAccent}
+            emptyMessage={
+              chartRange === 'all'
+                ? 'Complete workouts to build your strength score history.'
+                : 'No strength score data in this range.'
+            }
+          />
 
           {summary.lastWorkoutScore != null ? (
             <Text style={styles.progressStrengthBodySessionMeta}>

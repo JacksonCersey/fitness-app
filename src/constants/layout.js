@@ -44,7 +44,7 @@ export const MORE_HUB_SUBSCREEN_KEYS = new Set([
 ]);
 
 /** Subscreens opened from the Progress tab — slide in from the right. */
-export const PROGRESS_SUBSCREEN_KEYS = new Set(['strengthScoreHistory']);
+export const PROGRESS_SUBSCREEN_KEYS = new Set([]);
 
 /** True when `screenKey` should slide over its parent tab (`returnTabKey`). */
 export function shouldUseSubscreenSlideTransition(screenKey, returnTabKey = 'settings') {

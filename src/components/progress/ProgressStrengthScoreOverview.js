@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useStyles } from '../../app/context/ThemeStylesContext';
 import StrengthScoreSparkline from './StrengthScoreSparkline';
 
@@ -7,10 +7,9 @@ import StrengthScoreSparkline from './StrengthScoreSparkline';
  * Compact strength score header for the Progress Overview tab.
  * @param {{
  *   summary: import('../../data/strengthScore').StrengthScoreSummary | null,
- *   onOpenStrengthHistory?: () => void,
  * }} props
  */
-function ProgressStrengthScoreOverview({ summary, onOpenStrengthHistory }) {
+function ProgressStrengthScoreOverview({ summary }) {
   const styles = useStyles();
   if (!summary) return null;
 
@@ -20,15 +19,6 @@ function ProgressStrengthScoreOverview({ summary, onOpenStrengthHistory }) {
     <View style={styles.progressStrengthOverviewCard}>
       <View style={styles.progressStrengthOverviewHeaderRow}>
         <Text style={styles.progressStrengthOverviewTitle}>Strength Score</Text>
-        {onOpenStrengthHistory ? (
-          <TouchableOpacity
-            style={styles.progressStrengthOverviewMovementsBtn}
-            onPress={onOpenStrengthHistory}
-            accessibilityRole="button"
-            accessibilityLabel="View strength score history">
-            <Text style={styles.progressStrengthOverviewMovementsBtnText}>›</Text>
-          </TouchableOpacity>
-        ) : null}
       </View>
 
       <View style={styles.progressStrengthOverviewBodyRow}>

@@ -1,7 +1,9 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import WeightProgressChart from '../../../components/WeightProgressChart';
 import { useGameTheme, useStyles } from '../../app/context/ThemeStylesContext';
+import { filterPointsByChartRange } from '../../utils/chartTimeRange';
+import ProgressChartRangeFilter from './ProgressChartRangeFilter';
 
 /**
  * @param {{
@@ -21,6 +23,12 @@ function ProgressBodyWeightSection({
 }) {
   const styles = useStyles();
   const theme = useGameTheme();
+  const [chartRange, setChartRange] = useState('all');
+
+  const filteredPoints = useMemo(
+    () => filterPointsByChartRange(historyWeightChartPoints, chartRange),
+    [historyWeightChartPoints, chartRange],
+  );
 
   return (
     <View style={styles.progressBodyWeightSection}>
@@ -37,13 +45,21 @@ function ProgressBodyWeightSection({
             <Text style={styles.progressBodyWeightAddBtnText}>+</Text>
           </TouchableOpacity>
         </View>
+
+        <ProgressChartRangeFilter value={chartRange} onChange={setChartRange} />
+
         <WeightProgressChart
-          points={historyWeightChartPoints}
+          points={filteredPoints}
           lineColor={theme.navAccent}
-          axisColor={theme.borderFaint}
+          axisColor={theme.borderSubtle}
           textColor={theme.textMuted}
           pointColor={theme.navAccent}
           showCaption={false}
+          emptyMessage={
+            chartRange === 'all'
+              ? 'No weight logs yet. Tap + to add your first entry.'
+              : 'No weight logs in this range.'
+          }
         />
       </View>
 

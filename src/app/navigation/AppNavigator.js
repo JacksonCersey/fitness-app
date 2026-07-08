@@ -11,7 +11,6 @@ import ProfileScreen from '../../screens/ProfileScreen';
 import SummaryScreen from '../../screens/SummaryScreen';
 import HistoryDayWorkoutsScreen from '../../screens/HistoryDayWorkoutsScreen';
 import StrengthMovementsScreen from '../../screens/StrengthMovementsScreen';
-import StrengthScoreHistoryScreen from '../../screens/StrengthScoreHistoryScreen';
 import WeeklySplitPlannerScreen from '../../screens/WeeklySplitPlannerScreen';
 import WorkoutScreen from '../../screens/WorkoutScreen';
 import { useActiveWorkout } from '../context/ActiveWorkoutContext';
@@ -261,11 +260,9 @@ function SubscreenLayer() {
     setProfileGoalDraft,
     handleSaveProfile,
     handleSaveGoalsOnly,
-    strengthScoreSummary,
   } = useAppStorage();
 
-  const { handleCloseSplitPlanner, handleCloseStrengthMovements, handleCloseStrengthScoreHistory } =
-    useAppNavigation();
+  const { handleCloseSplitPlanner, handleCloseStrengthMovements } = useAppNavigation();
 
   const {
     historyDayScreenTitle,
@@ -315,19 +312,6 @@ function SubscreenLayer() {
           exerciseLookup={exerciseLookup}
           favoriteMovements={favoriteMovements}
           onToggleFavoriteMovement={handleToggleFavoriteMovement}
-        />
-      </>,
-    );
-  }
-
-  if (currentScreen === 'strengthScoreHistory') {
-    return wrapSubscreenSlide(
-      <>
-        <StatusBar barStyle="light-content" />
-        <StrengthScoreHistoryScreen
-          screenTransitionOpacity={screenTransitionOpacity}
-          onBack={handleCloseStrengthScoreHistory}
-          summary={strengthScoreSummary}
         />
       </>,
     );

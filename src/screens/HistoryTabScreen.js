@@ -47,7 +47,6 @@ function HistoryTabScreen({
   consecutivePerfectWeekStreak,
   lifetimeVolumeLb,
   onOpenStrengthMovements,
-  onOpenStrengthScoreHistory,
   onOpenDayWorkouts,
 }) {
   const styles = useStyles();
@@ -100,10 +99,7 @@ function HistoryTabScreen({
         showsVerticalScrollIndicator={false}>
         {historyProgressSection === 'overview' ? (
           <>
-            <ProgressStrengthScoreOverview
-              summary={strengthScoreSummary}
-              onOpenStrengthHistory={onOpenStrengthScoreHistory}
-            />
+            <ProgressStrengthScoreOverview summary={strengthScoreSummary} />
 
             <ProgressOverviewStreakPanel
               consecutiveTrainingWeekStreak={consecutiveTrainingWeekStreak}
@@ -137,10 +133,7 @@ function HistoryTabScreen({
 
         {historyProgressSection === 'body' ? (
           <>
-            <ProgressStrengthScoreBodyPanel
-              summary={strengthScoreSummary}
-              onOpenStrengthHistory={onOpenStrengthScoreHistory}
-            />
+            <ProgressStrengthScoreBodyPanel summary={strengthScoreSummary} />
 
             <ProgressBodyWeightSection
               openWeightLogModal={openWeightLogModal}

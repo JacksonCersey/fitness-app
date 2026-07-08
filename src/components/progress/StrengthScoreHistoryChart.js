@@ -6,6 +6,7 @@ const PAD_LEFT = 34;
 const PAD_RIGHT = 10;
 const PAD_TOP = 10;
 const PAD_BOTTOM = 24;
+const Y_TICK_COUNT = 5;
 
 function getNiceBounds(points) {
   if (!Array.isArray(points) || points.length === 0) {
@@ -22,6 +23,11 @@ function getNiceBounds(points) {
   return { min: Math.max(0, minValue - pad), max: maxValue + pad };
 }
 
+function buildYTicks(min, max, count) {
+  if (count <= 1) return [min];
+  return Array.from({ length: count }, (_, index) => min + ((max - min) * index) / (count - 1));
+}
+
 /**
  * @param {{
  *   points: Array<{ value: number; timestamp?: number; label?: string }>;
@@ -29,9 +35,17 @@ function getNiceBounds(points) {
  *   axisColor: string;
  *   textColor: string;
  *   pointColor?: string;
+ *   emptyMessage?: string;
  * }} props
  */
-function StrengthScoreHistoryChart({ points, lineColor, axisColor, textColor, pointColor }) {
+function StrengthScoreHistoryChart({
+  points,
+  lineColor,
+  axisColor,
+  textColor,
+  pointColor,
+  emptyMessage = 'Complete workouts to build your strength score history.',
+}) {
   const chartW = Math.min(340, Math.max(260, Dimensions.get('window').width - 44));
   const chartH = 200;
   const innerW = chartW - PAD_LEFT - PAD_RIGHT;
@@ -41,9 +55,7 @@ function StrengthScoreHistoryChart({ points, lineColor, axisColor, textColor, po
   if (safePoints.length === 0) {
     return (
       <View style={styles.emptyWrap}>
-        <Text style={[styles.emptyText, { color: textColor }]}>
-          Complete workouts to build your strength score history.
-        </Text>
+        <Text style={[styles.emptyText, { color: textColor }]}>{emptyMessage}</Text>
       </View>
     );
   }
@@ -67,7 +79,7 @@ function StrengthScoreHistoryChart({ points, lineColor, axisColor, textColor, po
   });
 
   const strokeColor = lineColor;
-  const yTicks = [max, min + (max - min) * 0.5, min];
+  const yTicks = buildYTicks(min, max, Y_TICK_COUNT);
 
   return (
     <View style={styles.wrap}>
@@ -75,6 +87,7 @@ function StrengthScoreHistoryChart({ points, lineColor, axisColor, textColor, po
         {yTicks.map((tick, index) => {
           const ratio = (tick - min) / range;
           const y = PAD_TOP + innerH - ratio * innerH;
+          const isEdge = index === 0 || index === yTicks.length - 1;
           return (
             <React.Fragment key={`y-${index}`}>
               <Line
@@ -83,13 +96,32 @@ function StrengthScoreHistoryChart({ points, lineColor, axisColor, textColor, po
                 x2={PAD_LEFT + innerW}
                 y2={y}
                 stroke={axisColor}
-                strokeOpacity={index === 2 ? 0.45 : 0.2}
-                strokeWidth={1}
+                strokeOpacity={isEdge ? 0.7 : 0.45}
+                strokeWidth={1.25}
               />
               <SvgText x={PAD_LEFT - 6} y={y + 3} fill={textColor} fontSize="9" textAnchor="end">
                 {Math.round(tick)}
               </SvgText>
             </React.Fragment>
+          );
+        })}
+
+        {svgPoints.map((point, index) => {
+          const n = svgPoints.length;
+          const labelStep = n <= 8 ? 1 : Math.ceil((n - 1) / 7);
+          const show = index === 0 || index === n - 1 || index % labelStep === 0;
+          if (!show) return null;
+          return (
+            <Line
+              key={`v-${index}`}
+              x1={point.x}
+              y1={PAD_TOP}
+              x2={point.x}
+              y2={PAD_TOP + innerH}
+              stroke={axisColor}
+              strokeOpacity={0.28}
+              strokeWidth={1}
+            />
           );
         })}
 

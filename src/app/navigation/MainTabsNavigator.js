@@ -54,7 +54,6 @@ function MainTabsNavigator({ workoutStartRef }) {
     handleOpenSplitPlannerFromMore,
     handleOpenStreakSubscreen,
     handleOpenAppearance,
-    handleOpenStrengthScoreHistory,
   } = useAppNavigation();
 
   const {
@@ -194,7 +193,6 @@ function MainTabsNavigator({ workoutStartRef }) {
       consecutivePerfectWeekStreak,
       lifetimeVolumeLb,
       onOpenStrengthMovements: handleOpenStrengthMovements,
-      onOpenStrengthScoreHistory: handleOpenStrengthScoreHistory,
       onOpenDayWorkouts: handleOpenHistoryDayDetail,
     }),
     [
@@ -227,7 +225,6 @@ function MainTabsNavigator({ workoutStartRef }) {
       openWeightLogModal,
       openWeightLogModalForEdit,
       handleOpenStrengthMovements,
-      handleOpenStrengthScoreHistory,
       handleOpenHistoryDayDetail,
       handleDeleteWeightLogEntry,
     ],
