@@ -7,6 +7,13 @@ export const CHART_TIME_RANGE_OPTIONS = [
   { id: 'all', label: 'All' },
 ];
 
+/** Month / Year / All — used on weekly-bucket streak graphs where Week is rarely useful. */
+export const STREAK_CHART_TIME_RANGE_OPTIONS = [
+  { id: 'month', label: 'Month' },
+  { id: 'year', label: 'Year' },
+  { id: 'all', label: 'All' },
+];
+
 /**
  * Milliseconds to keep for a range filter (rolling window ending now).
  * `all` returns null (no cutoff).

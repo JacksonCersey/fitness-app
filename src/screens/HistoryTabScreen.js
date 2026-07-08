@@ -1,14 +1,18 @@
 import React, { memo, useMemo } from 'react';
 import { useGameTheme, useStyles } from '../app/context/ThemeStylesContext';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import PastWorkoutsMonthCalendar from '../../components/PastWorkoutsMonthCalendar';
-import MonthlyVolumeChart from '../../components/MonthlyVolumeChart';
-import StrengthScoreCard from '../components/StrengthScoreCard';
+import AnimatedSegmentedControl from '../components/common/AnimatedSegmentedControl';
 import ProgressStrengthScoreOverview from '../components/progress/ProgressStrengthScoreOverview';
 import ProgressOverviewStreakPanel from '../components/progress/ProgressOverviewStreakPanel';
 import ProgressOverviewAdherencePanel from '../components/progress/ProgressOverviewAdherencePanel';
 import ProgressStrengthScoreBodyPanel from '../components/progress/ProgressStrengthScoreBodyPanel';
 import ProgressBodyWeightSection from '../components/progress/ProgressBodyWeightSection';
+import ProgressStreakHeroPanel from '../components/progress/ProgressStreakHeroPanel';
+import ProgressStreakRankPanel from '../components/progress/ProgressStreakRankPanel';
+import ProgressPerfectStreakPanel from '../components/progress/ProgressPerfectStreakPanel';
+import ProgressStreakRatesPanel from '../components/progress/ProgressStreakRatesPanel';
+import ProgressStreakHistoryGraphs from '../components/progress/ProgressStreakHistoryGraphs';
 
 const PROGRESS_SECTIONS = [
   { id: 'overview', label: 'Overview' },
@@ -25,70 +29,41 @@ function HistoryTabScreen({
   historyWeightChartPoints,
   historyAllWeightLogsSorted,
   handleDeleteWeightLogEntry,
-  historyChartMode,
-  setHistoryChartMode,
   historyCalendarMonth,
   historyCalendarYear,
   shiftHistoryCalendarMonth,
-  historySelectedMonth,
-  historySelectedYear,
-  shiftHistoryMonth,
-  shiftHistoryYear,
-  historyYearLabel,
-  historyMonthLabel,
-  historyChartValues,
-  historyMonthXAxisLabels,
-  historyYearXAxisLabels,
-  historyChartMax,
   workoutHistory,
   strengthScoreSummary,
   consecutiveTrainingWeekStreak,
   scheduledDayAdherence,
   consecutivePerfectWeekStreak,
   lifetimeVolumeLb,
-  onOpenStrengthMovements,
+  weeklySplitPlan,
   onOpenDayWorkouts,
 }) {
   const styles = useStyles();
   const theme = useGameTheme();
-  const strengthColors = {
-    textPrimary: theme.textPrimary,
-    textSecondary: theme.textSecondary,
-    accentSolid: theme.navAccent,
-    cardBg: theme.cardBg,
-    cardBorder: theme.cardBorder,
-  };
   const calendarMonthLabel = useMemo(() => {
     const month = String(historyCalendarMonth + 1).padStart(2, '0');
     return `${month}/${historyCalendarYear}`;
   }, [historyCalendarMonth, historyCalendarYear]);
+
   return (
     <View style={[styles.menuHomeShell, styles.historyProgressBody]}>
-      <View style={styles.historyProgressSegmentBar} accessibilityRole="tablist">
-        {PROGRESS_SECTIONS.map((section) => {
-          const isActive = historyProgressSection === section.id;
-          return (
-            <TouchableOpacity
-              key={section.id}
-              style={[
-                styles.historyProgressSegmentOption,
-                isActive && styles.historyProgressSegmentOptionActive,
-              ]}
-              onPress={() => setHistoryProgressSection(section.id)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isActive }}
-              accessibilityLabel={section.label}>
-              <Text
-                style={[
-                  styles.historyProgressSegmentText,
-                  isActive && styles.historyProgressSegmentTextActive,
-                ]}>
-                {section.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      <AnimatedSegmentedControl
+        options={PROGRESS_SECTIONS}
+        value={historyProgressSection}
+        onChange={setHistoryProgressSection}
+        accessibilityRole="tablist"
+        optionAccessibilityRole="tab"
+        style={styles.historyProgressSegmentBar}
+        optionStyle={styles.historyProgressSegmentOption}
+        textStyle={styles.historyProgressSegmentText}
+        activeTextStyle={styles.historyProgressSegmentTextActive}
+        inactiveTextColor={theme.textSecondary}
+        activeTextColor="#FFFFFF"
+        pillColor={theme.navAccent}
+      />
 
       <ScrollView
         style={styles.mainTabsFullBleedScroll}
@@ -147,120 +122,28 @@ function HistoryTabScreen({
 
         {historyProgressSection === 'streak' ? (
           <>
-            <StrengthScoreCard
-              summary={strengthScoreSummary}
-              colors={strengthColors}
-              onOpenMovements={onOpenStrengthMovements}
+            <ProgressStreakHeroPanel
+              consecutiveTrainingWeekStreak={consecutiveTrainingWeekStreak}
+              workoutHistory={workoutHistory}
             />
-
-            <View style={[styles.historyStatCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-            <Text style={[styles.historyCardTitle, { color: theme.textPrimary }]}>
-              {historyChartMode === 'year' ? 'Total lifted by month' : 'Total lifted by day'}
-            </Text>
-            <Text style={[styles.historyStatCaption, { color: theme.textSecondary, marginBottom: 10 }]}>
-              Training volume from saved workouts — weight × reps for each set.
-            </Text>
-            <View style={[styles.historyModeSwitch, { borderColor: theme.inputBorder, backgroundColor: theme.inputBg }]}>
-              <TouchableOpacity
-                style={[
-                  styles.historyModeSwitchOption,
-                  historyChartMode === 'month' && { backgroundColor: theme.accentSolid },
-                ]}
-                onPress={() => setHistoryChartMode('month')}
-                accessibilityRole="button"
-                accessibilityLabel="Show daily view">
-                <Text
-                  style={[
-                    styles.historyModeSwitchText,
-                    { color: historyChartMode === 'month' ? '#FFFFFF' : theme.textPrimary },
-                  ]}>
-                  Days in Month
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.historyModeSwitchOption,
-                  historyChartMode === 'year' && { backgroundColor: theme.accentSolid },
-                ]}
-                onPress={() => setHistoryChartMode('year')}
-                accessibilityRole="button"
-                accessibilityLabel="Show monthly view">
-                <Text
-                  style={[
-                    styles.historyModeSwitchText,
-                    { color: historyChartMode === 'year' ? '#FFFFFF' : theme.textPrimary },
-                  ]}>
-                  Months in Year
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.historyPeriodControlsRow}>
-              {historyChartMode === 'month' ? (
-                <View style={[styles.historySwitchCard, { borderColor: theme.inputBorder, backgroundColor: theme.inputBg }]}>
-                  <Text style={[styles.historySwitchLabel, { color: theme.textSecondary }]}>Month</Text>
-                  <View style={styles.historySwitchControls}>
-                    <TouchableOpacity
-                      style={[styles.historySwitchButton, { borderColor: theme.inputBorder }]}
-                      onPress={() => shiftHistoryMonth(-1)}
-                      accessibilityRole="button"
-                      accessibilityLabel="Previous month">
-                      <Text style={[styles.historySwitchButtonText, { color: theme.textPrimary }]}>‹</Text>
-                    </TouchableOpacity>
-                    <Text style={[styles.historySwitchValue, { color: theme.textPrimary }]}>
-                      {historySelectedMonth + 1}
-                    </Text>
-                    <TouchableOpacity
-                      style={[styles.historySwitchButton, { borderColor: theme.inputBorder }]}
-                      onPress={() => shiftHistoryMonth(1)}
-                      accessibilityRole="button"
-                      accessibilityLabel="Next month">
-                      <Text style={[styles.historySwitchButtonText, { color: theme.textPrimary }]}>›</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : null}
-              <View style={[styles.historySwitchCard, { borderColor: theme.inputBorder, backgroundColor: theme.inputBg }]}>
-                <Text style={[styles.historySwitchLabel, { color: theme.textSecondary }]}>Year</Text>
-                <View style={styles.historySwitchControls}>
-                  <TouchableOpacity
-                    style={[styles.historySwitchButton, { borderColor: theme.inputBorder }]}
-                    onPress={() => shiftHistoryYear(-1)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Previous year">
-                    <Text style={[styles.historySwitchButtonText, { color: theme.textPrimary }]}>‹</Text>
-                  </TouchableOpacity>
-                  <Text style={[styles.historySwitchValue, { color: theme.textPrimary }]}>{historySelectedYear}</Text>
-                  <TouchableOpacity
-                    style={[styles.historySwitchButton, { borderColor: theme.inputBorder }]}
-                    onPress={() => shiftHistoryYear(1)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Next year">
-                    <Text style={[styles.historySwitchButtonText, { color: theme.textPrimary }]}>›</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-            <Text style={[styles.historyStatCaption, { color: theme.textSecondary, marginBottom: 6 }]}>
-              {historyChartMode === 'year'
-                ? `${historyYearLabel} · x-axis = month, y-axis = total pounds lifted in that month`
-                : `${historyMonthLabel} · x-axis = day of month, y-axis = total pounds lifted`}
-            </Text>
-            <MonthlyVolumeChart
-              values={historyChartValues}
-              xLabels={historyChartMode === 'year' ? historyYearXAxisLabels : historyMonthXAxisLabels}
-              maxVolume={historyChartMax}
-              accentColor={theme.accentSolid}
-              axisColor={theme.inputBorder}
-              captionColor={theme.textSecondary}
-              barMutedColor={theme.barMuted}
-              captionText={
-                historyChartMode === 'year'
-                  ? 'Each bar is one month. Y-axis is pounds lifted in that month.'
-                  : 'Each bar is one day. Y-axis is pounds lifted on that day.'
-              }
-            peakLabelPrefix={historyChartMode === 'year' ? 'Highest month' : 'Highest day'}
-          />
-        </View>
+            <ProgressStreakRankPanel
+              consecutiveTrainingWeekStreak={consecutiveTrainingWeekStreak}
+              workoutHistory={workoutHistory}
+            />
+            <ProgressPerfectStreakPanel
+              consecutivePerfectWeekStreak={consecutivePerfectWeekStreak}
+              workoutHistory={workoutHistory}
+              weeklySplitPlan={weeklySplitPlan}
+            />
+            <ProgressStreakRatesPanel
+              scheduledDayAdherence={scheduledDayAdherence}
+              workoutHistory={workoutHistory}
+              weeklySplitPlan={weeklySplitPlan}
+            />
+            <ProgressStreakHistoryGraphs
+              workoutHistory={workoutHistory}
+              weeklySplitPlan={weeklySplitPlan}
+            />
           </>
         ) : null}
       </ScrollView>
