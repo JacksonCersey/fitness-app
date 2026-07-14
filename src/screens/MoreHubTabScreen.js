@@ -68,13 +68,13 @@ function MoreHubTabScreen({
   handleOpenMoreGoals,
   handleOpenMovementsFromMore,
   handleOpenSplitPlannerFromMore,
-  handleOpenStreakSubscreen,
+  handleOpenStreakFromMore,
   handleOpenHistoryFromMore,
   handleOpenAppearance,
 }) {
   const styles = useStyles();
   return (
-    <View style={styles.menuMoreScreen}>
+    <View style={styles.menuHomeShell}>
       <View style={styles.menuMoreHeader}>
         <Text style={styles.menuMoreHeaderTitle}>More</Text>
       </View>
@@ -133,7 +133,7 @@ function MoreHubTabScreen({
             icon={MORE_LINK_ICONS.streak}
             title="Streak & this week"
             subtitle="Week strip, streak ranks, and badges"
-            onPress={handleOpenStreakSubscreen}
+            onPress={handleOpenStreakFromMore}
             accessibilityLabel="Streak and this week"
           />
           <MoreLinkRow

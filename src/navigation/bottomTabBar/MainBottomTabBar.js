@@ -156,7 +156,7 @@ function MainBottomTabBar({
                 accessibilityLabel="Home">
                 <View style={styles.menuNavSlotAnchor}>
                   <Image
-                    source={require('../../../assets/images/houseicon.png')}
+                    source={require('../../../assets/images/icons/houseicon.png')}
                     style={[
                       styles.menuNavGearIcon,
                       activeTab === 'home' ? styles.menuNavIconActive : styles.menuNavIconInactive,
@@ -180,7 +180,7 @@ function MainBottomTabBar({
                 accessibilityLabel="History">
                 <View style={styles.menuNavSlotAnchor}>
                   <Image
-                    source={require('../../../assets/images/progressicon.png')}
+                    source={require('../../../assets/images/icons/progressicon.png')}
                     style={[
                       styles.menuNavGearIcon,
                       activeTab === 'history' ? styles.menuNavIconActive : styles.menuNavIconInactive,
@@ -201,10 +201,10 @@ function MainBottomTabBar({
                 style={styles.menuNavTabTouchable}
                 onPress={() => handleTabPress('muscles', onPressMuscles)}
                 accessibilityRole="button"
-                accessibilityLabel="Targets tab">
+                accessibilityLabel="Plan tab">
                 <View style={styles.menuNavSlotAnchor}>
                   <Image
-                    source={require('../../../assets/images/targetlogo.png')}
+                    source={require('../../../assets/images/icons/targetlogo.png')}
                     style={[
                       styles.menuNavTargetIcon,
                       activeTab === 'muscles' ? styles.menuNavIconActive : styles.menuNavIconInactive,
@@ -217,7 +217,7 @@ function MainBottomTabBar({
                       styles.menuNavTabLabel,
                       activeTab === 'muscles' ? styles.menuNavTabLabelActive : styles.menuNavTabLabelInactive,
                     ]}>
-                    Targets
+                    Plan
                   </Text>
                 </View>
               </TouchableOpacity>

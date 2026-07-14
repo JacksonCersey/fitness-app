@@ -4,7 +4,7 @@ import { useStyles } from '../../app/context/ThemeStylesContext';
 import { getStreakRankProgress } from '../../data/streakRanks';
 import { computeBestTrainingWeekStreak, hasLoggedWorkoutInCurrentWeek } from '../../utils/consecutiveWeekStreak';
 
-const STREAK_LOGO_ACTIVE = require('../../../assets/images/streaklogo.png');
+const STREAK_LOGO_ACTIVE = require('../../../assets/images/icons/streaklogo.png');
 const STREAK_LOGO_INACTIVE = require('../../../assets/images/streaklogo-inactive.png');
 
 /**

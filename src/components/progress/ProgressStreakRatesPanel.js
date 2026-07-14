@@ -3,8 +3,8 @@ import { Image, Text, View } from 'react-native';
 import { useGameTheme, useStyles } from '../../app/context/ThemeStylesContext';
 import { computePerfectWeekRate, computeWeeksHitRate } from '../../utils/streakHistory';
 
-const STREAK_LOGO = require('../../../assets/images/streaklogo.png');
-const PERFECT_STREAK_LOGO = require('../../../assets/images/perfectstreaklogo.png');
+const STREAK_LOGO = require('../../../assets/images/icons/streaklogo.png');
+const PERFECT_STREAK_LOGO = require('../../../assets/images/icons/perfectstreaklogo.png');
 
 /**
  * Rate stats strip for Progress → Streak.

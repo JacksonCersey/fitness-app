@@ -25,7 +25,7 @@ function HomeProfileHeader({ onOpenProfile, sessionTitle, showBackToToday, onBac
           accessibilityRole="button"
           accessibilityLabel="Open profile">
           <Image
-            source={require('../../../assets/images/profileicon.png')}
+            source={require('../../../assets/images/icons/profileicon.png')}
             style={styles.menuProfileIconSmall}
           />
         </TouchableOpacity>

@@ -41,6 +41,9 @@ export function AppNavigationProvider({ children, currentScreen, setCurrentScree
   const moreSubscreenSlideX = useRef(new Animated.Value(0)).current;
   const moreHubNavBarOpacity = useRef(new Animated.Value(1)).current;
   const windowWidthRef = useRef(Dimensions.get('window').width);
+  const strengthMovementPickerModeRef = useRef(null);
+  /** @type {React.MutableRefObject<{ planIndex: number; mode?: string; token: number } | null>} */
+  const planInlineBuilderIntentRef = useRef(null);
 
   const fadeMoreHubNavBarOut = useCallback(() => {
     moreHubNavBarOpacity.stopAnimation();
@@ -134,6 +137,15 @@ export function AppNavigationProvider({ children, currentScreen, setCurrentScree
       return;
     }
 
+    // Plan edit-split uses a custom dot morph; skip the default fade cut.
+    const isPlanSplitMorph =
+      (previousScreen === 'muscles' && currentScreen === 'planSplitTimeline') ||
+      (previousScreen === 'planSplitTimeline' && currentScreen === 'muscles');
+    if (isPlanSplitMorph) {
+      screenTransitionOpacity.setValue(1);
+      return;
+    }
+
     screenTransitionOpacity.setValue(0);
     Animated.timing(screenTransitionOpacity, {
       toValue: 1,
@@ -197,17 +209,13 @@ export function AppNavigationProvider({ children, currentScreen, setCurrentScree
     setCurrentScreen('moreGoals');
   }, [profileGoalWeightLb, setProfileGoalDraft, setCurrentScreen]);
 
-  const handleOpenStreakSubscreen = useCallback(() => {
-    subNavigatorReturnRef.current = 'settings';
-    setCurrentScreen('streak');
-  }, [setCurrentScreen]);
-
   const handleOpenAppearance = useCallback(() => {
     subNavigatorReturnRef.current = 'settings';
     setCurrentScreen('appearance');
   }, [setCurrentScreen]);
 
   const handleOpenMovementsFromMore = useCallback(() => {
+    strengthMovementPickerModeRef.current = null;
     subNavigatorReturnRef.current = 'settings';
     setCurrentScreen('strengthMovements');
   }, [setCurrentScreen]);
@@ -215,6 +223,11 @@ export function AppNavigationProvider({ children, currentScreen, setCurrentScree
   const handleOpenSplitPlannerFromHome = useCallback(() => {
     subNavigatorReturnRef.current = 'menu';
     setCurrentScreen('splitPlanner');
+  }, [setCurrentScreen]);
+
+  const handleOpenSplitPlannerFromPlan = useCallback(() => {
+    subNavigatorReturnRef.current = 'muscles';
+    setCurrentScreen('planSplitTimeline');
   }, [setCurrentScreen]);
 
   const handleOpenSplitPlannerFromMore = useCallback(() => {
@@ -229,16 +242,37 @@ export function AppNavigationProvider({ children, currentScreen, setCurrentScree
       return;
     }
     if (dest === 'settings') setCurrentScreen('settings');
+    else if (dest === 'muscles') setCurrentScreen('muscles');
     else setCurrentScreen('menu');
   }, [setCurrentScreen, runMoreSubscreenPop]);
 
+  const handleClosePlanSplitTimeline = useCallback(() => {
+    setCurrentScreen('muscles');
+  }, [setCurrentScreen]);
+
+  const requestPlanInlineBuilder = useCallback(
+    ({ planIndex, mode = 'create' } = {}) => {
+      const idx = Number(planIndex);
+      if (!Number.isInteger(idx) || idx < 0 || idx > 6) return;
+      planInlineBuilderIntentRef.current = {
+        planIndex: idx,
+        mode,
+        token: Date.now(),
+      };
+      setCurrentScreen('muscles');
+    },
+    [setCurrentScreen],
+  );
+
   const handleOpenStrengthMovements = useCallback(() => {
+    strengthMovementPickerModeRef.current = null;
     subNavigatorReturnRef.current = 'history';
     setCurrentScreen('strengthMovements');
   }, [setCurrentScreen]);
 
   const handleCloseStrengthMovements = useCallback(() => {
     const dest = subNavigatorReturnRef.current;
+    strengthMovementPickerModeRef.current = null;
     if (dest === 'settings' && shouldUseMoreHubSlideTransition('strengthMovements', 'settings')) {
       runMoreSubscreenPop(() => setCurrentScreen('settings'));
       return;
@@ -248,13 +282,16 @@ export function AppNavigationProvider({ children, currentScreen, setCurrentScree
     else setCurrentScreen('menu');
   }, [setCurrentScreen, runMoreSubscreenPop]);
 
+  // Keep Plan tab painted under the edit-split morph (planSplitTimeline is not a main tab key).
   const mainTabsDisplayedScreen = MAIN_TAB_SCREEN_KEYS.has(currentScreen)
     ? currentScreen
-    : isMoreHubSlideOverlay(currentScreen, subNavigatorReturnRef.current)
-      ? MAIN_TAB_SCREEN_KEYS.has(subNavigatorReturnRef.current)
-        ? subNavigatorReturnRef.current
-        : 'settings'
-      : currentScreen;
+    : currentScreen === 'planSplitTimeline'
+      ? 'muscles'
+      : isMoreHubSlideOverlay(currentScreen, subNavigatorReturnRef.current)
+        ? MAIN_TAB_SCREEN_KEYS.has(subNavigatorReturnRef.current)
+          ? subNavigatorReturnRef.current
+          : 'settings'
+        : currentScreen;
 
   const value = useMemo(
     () => ({
@@ -276,14 +313,18 @@ export function AppNavigationProvider({ children, currentScreen, setCurrentScree
       handleOpenProfile,
       handleOpenProfileFromMore,
       handleOpenMoreGoals,
-      handleOpenStreakSubscreen,
       handleOpenAppearance,
       handleOpenMovementsFromMore,
       handleOpenSplitPlannerFromHome,
+      handleOpenSplitPlannerFromPlan,
       handleOpenSplitPlannerFromMore,
       handleCloseSplitPlanner,
+      handleClosePlanSplitTimeline,
+      requestPlanInlineBuilder,
+      planInlineBuilderIntentRef,
       handleOpenStrengthMovements,
       handleCloseStrengthMovements,
+      strengthMovementPickerModeRef,
     }),
     [
       currentScreen,
@@ -302,12 +343,14 @@ export function AppNavigationProvider({ children, currentScreen, setCurrentScree
       handleOpenProfile,
       handleOpenProfileFromMore,
       handleOpenMoreGoals,
-      handleOpenStreakSubscreen,
       handleOpenAppearance,
       handleOpenMovementsFromMore,
       handleOpenSplitPlannerFromHome,
+      handleOpenSplitPlannerFromPlan,
       handleOpenSplitPlannerFromMore,
       handleCloseSplitPlanner,
+      handleClosePlanSplitTimeline,
+      requestPlanInlineBuilder,
       handleOpenStrengthMovements,
       handleCloseStrengthMovements,
     ],

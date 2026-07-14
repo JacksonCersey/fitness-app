@@ -47,7 +47,7 @@ function SummaryWeekProgressPager({
         <View style={[styles.summaryStreakPagerPage, { width: cardWidth }]}>
           <View style={styles.summaryStreakHeaderRow}>
             <View style={styles.summaryStreakTitleRow}>
-              <Image source={require('../../../assets/images/streaklogo.png')} style={styles.summaryStreakIcon} />
+              <Image source={require('../../../assets/images/icons/streaklogo.png')} style={styles.summaryStreakIcon} />
               <Text style={styles.summaryStreakTitle}>Week goal</Text>
             </View>
             <Text style={styles.summaryStreakWeeks}>

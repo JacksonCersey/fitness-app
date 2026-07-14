@@ -361,6 +361,12 @@ export function HistoryProgressProvider({ children, onReturnFromSubscreenRef }) 
     startTransition(() => setCurrentScreen('history'));
   }, [setCurrentScreen, subNavigatorReturnRef]);
 
+  const handleOpenStreakFromMore = useCallback(() => {
+    subNavigatorReturnRef.current = 'settings';
+    setHistoryProgressSection('streak');
+    startTransition(() => setCurrentScreen('history'));
+  }, [setCurrentScreen, subNavigatorReturnRef, setHistoryProgressSection]);
+
   const handleOpenHistoricalWorkoutSummary = useCallback(
     (workoutId, returnTo = 'history') => {
       historicalSummaryReturnRef.current = returnTo;
@@ -473,6 +479,7 @@ export function HistoryProgressProvider({ children, onReturnFromSubscreenRef }) 
       applyWeightDatePickerSelection,
       handleDeleteWeightLogEntry,
       handleOpenHistoryFromMore,
+      handleOpenStreakFromMore,
       handleOpenHistoryDayDetail,
       handleCloseHistoryDayDetail,
       handleOpenHistoricalWorkoutSummary,
@@ -524,6 +531,7 @@ export function HistoryProgressProvider({ children, onReturnFromSubscreenRef }) 
       applyWeightDatePickerSelection,
       handleDeleteWeightLogEntry,
       handleOpenHistoryFromMore,
+      handleOpenStreakFromMore,
       handleOpenHistoryDayDetail,
       handleCloseHistoryDayDetail,
       handleOpenHistoricalWorkoutSummary,

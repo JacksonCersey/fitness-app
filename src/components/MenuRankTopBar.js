@@ -68,7 +68,7 @@ function MenuRankTopBar({ consecutiveTrainingWeekStreak, onOpenProfile }) {
         accessibilityRole="button"
         accessibilityLabel="Open profile">
         <View style={styles.menuProfileButtonSmall}>
-          <Image source={require('../../assets/images/profileicon.png')} style={styles.menuProfileIconSmall} />
+          <Image source={require('../../assets/images/icons/profileicon.png')} style={styles.menuProfileIconSmall} />
         </View>
         <Text style={styles.menuProfileLinkText}>Profile</Text>
         <Text style={styles.menuProfileLinkChevron}>›</Text>

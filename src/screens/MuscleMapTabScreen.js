@@ -1,180 +1,203 @@
-import React, { memo, useCallback, useMemo, useState } from 'react';
-import { useStyles, useWorkoutTheme } from '../app/context/ThemeStylesContext';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import {
-  CATEGORY_LABELS,
-  CATEGORY_ORDER,
-  TargetsPplHorizontalProgressBar,
-  TargetsSplitWeekStrip,
-  TargetsWeeklyPplRingsRow,
-} from '../components/targetsProgressShared';
-import { WEEKLY_SUBCATEGORY_GROUPS } from '../data/weeklyTargetSubcategories';
-import { ESTIMATED_WEEKLY_SUBTARGETS, WEEKLY_SET_TARGETS } from '../utils/weeklyPplSetTotals';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Animated, Image, ScrollView, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useStyles } from '../app/context/ThemeStylesContext';
+import { usePlanSplitTransition } from '../app/context/PlanSplitTransitionContext';
+import { useAppNavigation } from '../app/context/AppNavigationContext';
+import PlanDayPager from '../components/plan/PlanDayPager';
+import PlanSavedWorkoutsSheet from '../components/plan/PlanSavedWorkoutsSheet';
+import PlanWeekdayBar from '../components/plan/PlanWeekdayBar';
+import { getMondayBasedDayIndex } from '../data/weeklySplitPlanner';
 
-function formatWeekRangeLabel(weekStartMonday) {
-  const end = new Date(weekStartMonday);
-  end.setDate(end.getDate() + 6);
-  const opts = { month: 'short', day: 'numeric' };
-  return `${weekStartMonday.toLocaleDateString(undefined, opts)} – ${end.toLocaleDateString(undefined, opts)}`;
-}
+const HERO_FADE_MS = 220;
 
-function TargetsCategoryCard({
-  categoryKey,
-  weeklyPplCounts,
-  subcategorySetCounts,
-  submenuOpen,
-  onToggleSubmenu,
-}) {
-  const styles = useStyles();
-  const wt = useWorkoutTheme();
-  const goal = WEEKLY_SET_TARGETS[categoryKey];
-  const done = weeklyPplCounts[categoryKey] ?? 0;
-  const pct = goal > 0 ? Math.min(1, done / goal) : 0;
-  const open = submenuOpen[categoryKey];
-  const subs = WEEKLY_SUBCATEGORY_GROUPS[categoryKey];
-  const subCounts = subcategorySetCounts[categoryKey] ?? {};
-  const subTargets = ESTIMATED_WEEKLY_SUBTARGETS[categoryKey] ?? {};
-
-  return (
-    <View
-      style={[styles.targetsDayCard, { backgroundColor: wt.cardBg, borderColor: wt.cardBorder }]}
-      accessibilityRole="summary"
-      accessibilityLabel={`${CATEGORY_LABELS[categoryKey]}, ${done} of ${goal} sets this week`}>
-      <View style={styles.targetsCategoryMainRow}>
-        <View style={styles.targetsCategoryTextBlock}>
-          <Text style={[styles.targetsDayName, { color: wt.textPrimary }]}>{CATEGORY_LABELS[categoryKey]}</Text>
-          <Text style={[styles.targetsDaySessionLabel, { color: wt.textSecondary }]}>
-            {done} / {goal} sets
-          </Text>
-        </View>
-        <View style={styles.targetsCategoryBarWrap}>
-          <TargetsPplHorizontalProgressBar
-            categoryKey={categoryKey}
-            pct={pct}
-            goal={goal}
-            borderColor={wt.inputBorder}
-            trackBg={wt.splitModalInnerBg}
-          />
-        </View>
-      </View>
-
-      <TouchableOpacity
-        style={styles.targetsSubcategoryToggle}
-        onPress={() => onToggleSubmenu(categoryKey)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        accessibilityLabel={`${open ? 'Hide' : 'Show'} ${CATEGORY_LABELS[categoryKey]} subcategories`}>
-        <Text style={[styles.targetsSubcategoryChevron, { color: wt.textSecondary }]}>{open ? '▼' : '▶'}</Text>
-        <Text style={[styles.targetsSubcategoryToggleText, { color: wt.textPrimary }]}>Subcategories</Text>
-      </TouchableOpacity>
-
-      {open ? (
-        <View style={[styles.targetsSubcategoryList, { borderTopColor: wt.cardBorder }]}>
-          {subs.map((subItem) => {
-            const n = subCounts[subItem.id] ?? 0;
-            const target = subTargets[subItem.id] ?? 0;
-            return (
-              <View
-                key={subItem.id}
-                style={styles.targetsSubcategoryRow}
-                accessibilityLabel={`${subItem.label}, ${n} of ${target} sets this week`}>
-                <Text style={[styles.targetsSubcategoryName, { color: wt.textSecondary }]}>{subItem.label}</Text>
-                <View
-                  style={[
-                    styles.targetsSubcategoryPill,
-                    { backgroundColor: wt.splitModalInnerBg, borderColor: wt.inputBorder },
-                  ]}>
-                  <Text style={[styles.targetsSubcategorySets, { color: wt.textPrimary }]}>{n}</Text>
-                  <Text style={[styles.targetsSubcategoryTargetMuted, { color: wt.textMuted }]}> / {target}</Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      ) : null}
-    </View>
-  );
+function presentBottomSheet(ref) {
+  requestAnimationFrame(() => {
+    if (ref.current) {
+      ref.current.present();
+      return;
+    }
+    setTimeout(() => ref.current?.present(), 50);
+  });
 }
 
 function MuscleMapTabScreen({
   mainTabBottomReserve,
-  weeklyPplCounts,
-  weeklySubcategorySetCounts,
-  lastWorkoutPplBreakdown,
-  weekStartMonday,
   weeklySplitPlan,
+  exerciseLookup,
+  savedWorkoutPlans,
+  dayWorkoutAssignments,
+  onOpenSplitPlanner,
+  onAssignWorkoutToDay,
+  onSaveWorkoutForDay,
+  onChangeWeeklySplitPlan,
 }) {
   const styles = useStyles();
-  const wt = useWorkoutTheme();
+  const { setCurrentScreen, planInlineBuilderIntentRef, currentScreen } = useAppNavigation();
+  const {
+    planHeroActive,
+    planDotsHidden,
+    phase,
+    startForward,
+    registerPlanSources,
+    isBusy,
+  } = usePlanSplitTransition();
+  const [selectedPlanIndex, setSelectedPlanIndex] = useState(() => getMondayBasedDayIndex(new Date()));
+  const [savedSheetOpen, setSavedSheetOpen] = useState(false);
+  const [builderIntent, setBuilderIntent] = useState(null);
+  const weekdayBarRef = useRef(null);
+  const savedSheetRef = useRef(null);
+  const nonHeroOpacity = useRef(new Animated.Value(1)).current;
 
-  const weekLabel = useMemo(() => formatWeekRangeLabel(weekStartMonday), [weekStartMonday]);
+  useLayoutEffect(() => {
+    if (planHeroActive) {
+      if (phase === 'reverse') {
+        nonHeroOpacity.setValue(0);
+        return;
+      }
+      Animated.timing(nonHeroOpacity, {
+        toValue: 0,
+        duration: HERO_FADE_MS,
+        useNativeDriver: true,
+      }).start();
+      return;
+    }
+    Animated.timing(nonHeroOpacity, {
+      toValue: 1,
+      duration: HERO_FADE_MS,
+      useNativeDriver: true,
+    }).start();
+  }, [planHeroActive, phase, nonHeroOpacity]);
 
-  const [submenuOpen, setSubmenuOpen] = useState(() => ({
-    push: false,
-    pull: false,
-    legs: false,
-  }));
+  useEffect(() => {
+    if (phase !== 'reverse') return undefined;
+    let cancelled = false;
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(async () => {
+        const frames = await weekdayBarRef.current?.measureDotFrames?.();
+        if (!cancelled && frames) {
+          registerPlanSources(frames);
+        }
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+  }, [phase, registerPlanSources]);
 
-  const onToggleSubmenu = useCallback((categoryKey) => {
-    setSubmenuOpen((prev) => ({
-      ...prev,
-      [categoryKey]: !prev[categoryKey],
-    }));
+  // Pick up Create New from the timeline (or other callers) once Plan is idle.
+  useEffect(() => {
+    if (planHeroActive || isBusy || currentScreen !== 'muscles') return;
+    const intent = planInlineBuilderIntentRef?.current;
+    if (!intent) return;
+    planInlineBuilderIntentRef.current = null;
+    setSelectedPlanIndex(intent.planIndex);
+    setBuilderIntent(intent);
+  }, [currentScreen, isBusy, planHeroActive, planInlineBuilderIntentRef]);
+
+  const handleEditSplit = useCallback(async () => {
+    if (isBusy) return;
+    const frames = await weekdayBarRef.current?.measureDotFrames?.();
+    const dayStyles = weekdayBarRef.current?.getDayStyles?.() ?? [];
+    if (!frames) {
+      onOpenSplitPlanner?.();
+      return;
+    }
+    startForward({
+      frames,
+      styles: dayStyles,
+      navigateToTimeline: () => {
+        setCurrentScreen('planSplitTimeline');
+      },
+    });
+  }, [isBusy, onOpenSplitPlanner, setCurrentScreen, startForward]);
+
+  const handleOpenSavedSheet = useCallback(() => {
+    if (isBusy) return;
+    setSavedSheetOpen(true);
+    presentBottomSheet(savedSheetRef);
+  }, [isBusy]);
+
+  const handleAssignSavedWorkout = useCallback(
+    (planId) => {
+      onAssignWorkoutToDay?.(selectedPlanIndex, planId);
+    },
+    [onAssignWorkoutToDay, selectedPlanIndex],
+  );
+
+  const syncSavedSheetClosed = useCallback(() => {
+    setSavedSheetOpen(false);
   }, []);
 
-  const lastSets = lastWorkoutPplBreakdown?.sets;
-  const lastMovements = lastWorkoutPplBreakdown?.movements;
-  const hasLastWorkoutBreakdown =
-    lastSets &&
-    (lastSets.push > 0 || lastSets.pull > 0 || lastSets.legs > 0) &&
-    lastMovements;
+  const handleBuilderIntentConsumed = useCallback(() => {
+    setBuilderIntent(null);
+  }, []);
 
   return (
-    <View style={[styles.workoutScreenWrapper, { backgroundColor: wt.screenBg }]}>
-      <ScrollView
-        style={[styles.mainTabsFullBleedScroll, { backgroundColor: wt.screenBg }]}
-        contentContainerStyle={[styles.container, { paddingBottom: 32 + mainTabBottomReserve }]}>
-        <Text style={[styles.summaryTitle, { color: wt.textPrimary }]}>Targets</Text>
-        <TargetsSplitWeekStrip weeklySplitPlan={weeklySplitPlan} />
-        <TargetsWeeklyPplRingsRow weeklyPplCounts={weeklyPplCounts} />
-        <Text style={[styles.profileHint, { color: wt.textMuted, marginBottom: 16 }]}>
-          Goals: {WEEKLY_SET_TARGETS.push} push · {WEEKLY_SET_TARGETS.pull} pull · {WEEKLY_SET_TARGETS.legs} legs · Week{' '}
-          {weekLabel}
-        </Text>
-
-        <Text style={[styles.menuMoreSectionTitle, { color: wt.textPrimary, marginBottom: 10 }]}>Progress</Text>
-
-        {CATEGORY_ORDER.map((categoryKey) => (
-          <TargetsCategoryCard
-            key={categoryKey}
-            categoryKey={categoryKey}
-            weeklyPplCounts={weeklyPplCounts}
-            subcategorySetCounts={weeklySubcategorySetCounts}
-            submenuOpen={submenuOpen}
-            onToggleSubmenu={onToggleSubmenu}
-          />
-        ))}
-
-        <Text style={[styles.menuMoreSectionTitle, { color: wt.textPrimary, marginTop: 20, marginBottom: 8 }]}>
-          Last workout
-        </Text>
-        {hasLastWorkoutBreakdown ? (
-          <View style={[styles.targetsLastWorkoutCard, { backgroundColor: wt.innerCardBg, borderColor: wt.inputBorder }]}>
-            <Text style={[styles.setText, { color: wt.textPrimary }]}>
-              Push {lastMovements.push} movements ({lastSets.push} sets) · Pull {lastMovements.pull} movements (
-              {lastSets.pull} sets) · Legs {lastMovements.legs} movements ({lastSets.legs} sets)
-            </Text>
-            <Text style={[styles.profileHint, { color: wt.textMuted, marginTop: 6, marginBottom: 0 }]}>
-              Counts only include exercises in your database (custom names are skipped).
-            </Text>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={[styles.menuHomeShell, styles.historyProgressBody]}>
+        <ScrollView
+          style={styles.planScreenScroll}
+          contentContainerStyle={[
+            styles.planScreenScrollContent,
+            { paddingBottom: mainTabBottomReserve + 24 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          bounces
+          keyboardShouldPersistTaps="handled">
+          <View style={styles.planScreenTitleSection}>
+            <View style={styles.planScreenTitleRow}>
+              <Text style={styles.planScreenTitle}>Week Split</Text>
+              <Image
+                source={require('../../assets/images/icons/calendaricon.png')}
+                style={styles.planScreenTitleIcon}
+                resizeMode="contain"
+                accessibilityIgnoresInvertColors
+              />
+            </View>
           </View>
-        ) : (
-          <Text style={[styles.setText, { color: wt.textMuted }]}>
-            Finish a workout with logged sets to see how it split across push, pull, and legs.
-          </Text>
-        )}
-      </ScrollView>
-    </View>
+
+          <PlanWeekdayBar
+            ref={weekdayBarRef}
+            weeklySplitPlan={weeklySplitPlan}
+            selectedPlanIndex={selectedPlanIndex}
+            onSelectDay={setSelectedPlanIndex}
+            onPressEditSplit={handleEditSplit}
+            heroMode={planHeroActive}
+            heroSnapHide={phase === 'reverse'}
+            dotsHidden={planDotsHidden}
+            editOpacity={nonHeroOpacity}
+          />
+
+          <Animated.View
+            style={[styles.planContentWrap, { opacity: nonHeroOpacity }]}
+            pointerEvents={planHeroActive ? 'none' : 'auto'}>
+            <PlanDayPager
+              selectedPlanIndex={selectedPlanIndex}
+              weeklySplitPlan={weeklySplitPlan}
+              dayWorkoutAssignments={dayWorkoutAssignments}
+              savedWorkoutPlans={savedWorkoutPlans}
+              isBusy={isBusy}
+              onPressSaved={handleOpenSavedSheet}
+              onSaveWorkoutForDay={onSaveWorkoutForDay}
+              onChangeWeeklySplitPlan={onChangeWeeklySplitPlan}
+              builderIntent={builderIntent}
+              onBuilderIntentConsumed={handleBuilderIntentConsumed}
+            />
+          </Animated.View>
+        </ScrollView>
+
+        {savedSheetOpen ? (
+          <PlanSavedWorkoutsSheet
+            ref={savedSheetRef}
+            savedWorkoutPlans={savedWorkoutPlans}
+            onOpenWorkout={handleAssignSavedWorkout}
+            onDismiss={syncSavedSheetClosed}
+          />
+        ) : null}
+      </View>
+    </GestureHandlerRootView>
   );
 }
 

@@ -6,7 +6,7 @@ import { weeklySplitPlanIsConfigured } from '../../data/weeklySplitPlanner';
 import { getCurrentWeekPerfectCarouselState } from '../../utils/consecutivePerfectWeekStreak';
 import { computeBestPerfectWeekStreak } from '../../utils/streakHistory';
 
-const PERFECT_STREAK_LOGO = require('../../../assets/images/perfectstreaklogo.png');
+const PERFECT_STREAK_LOGO = require('../../../assets/images/icons/perfectstreaklogo.png');
 const STREAK_LOGO_INACTIVE = require('../../../assets/images/streaklogo-inactive.png');
 
 const RING_SIZE = 72;

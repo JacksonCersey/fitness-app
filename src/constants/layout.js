@@ -37,7 +37,6 @@ export const MORE_HUB_NAV_BAR_FADE_MS = 120;
 export const MORE_HUB_SUBSCREEN_KEYS = new Set([
   'profile',
   'moreGoals',
-  'streak',
   'appearance',
   'strengthMovements',
   'splitPlanner',
@@ -76,7 +75,7 @@ export function isMoreHubSlideOverlay(screenKey, returnTabKey = 'settings') {
 /** Bottom-tab root screens — cross-fade handled in MainTabsRoot. */
 export const MAIN_TAB_SCREEN_KEYS = new Set(['menu', 'history', 'settings', 'muscles']);
 
-/** Number of slots in the bottom tab track (Home, Progress, Targets, More). */
+/** Number of slots in the bottom tab track (Home, Progress, Plan, More). */
 export const MAIN_NAV_TAB_COUNT = 4;
 
 /** Maps main-tab screen keys to bottom-nav tab keys. */

@@ -13,9 +13,9 @@ const AUTO_INTERVAL_MS = 5000;
 const CAROUSEL_BADGE_SIZE = 56;
 const CAROUSEL_BADGE_STROKE = 3.5;
 
-const STREAK_LOGO_ACTIVE = require('../../../assets/images/streaklogo.png');
+const STREAK_LOGO_ACTIVE = require('../../../assets/images/icons/streaklogo.png');
 const STREAK_LOGO_INACTIVE = require('../../../assets/images/streaklogo-inactive.png');
-const PERFECT_STREAK_LOGO_ACTIVE = require('../../../assets/images/perfectstreaklogo.png');
+const PERFECT_STREAK_LOGO_ACTIVE = require('../../../assets/images/icons/perfectstreaklogo.png');
 
 /** Matches the cyan → purple → pink on `perfectstreaklogo.png`. */
 const PERFECT_STREAK_RING_GRADIENT = {
@@ -125,6 +125,8 @@ function HomeStreakRankCarousel({
     () => getCurrentWeekPerfectCarouselState(weeklySplitPlan, workoutHistory),
     [weeklySplitPlan, workoutHistory],
   );
+  // Keep the badge grey until a perfect week is earned; ring still reflects this week.
+  const perfectBadgeActive = perfectWeeks > 0 && perfectWeekCarousel.isActive;
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -210,9 +212,7 @@ function HomeStreakRankCarousel({
             progressGradient={PERFECT_STREAK_RING_GRADIENT}
             trackColor={perfectWeekCarousel.isActive ? activeRingTrack : inactiveRingTrack}
             inactive={!perfectWeekCarousel.isActive}
-            imageSource={
-              perfectWeekCarousel.isActive ? PERFECT_STREAK_LOGO_ACTIVE : STREAK_LOGO_INACTIVE
-            }
+            imageSource={perfectBadgeActive ? PERFECT_STREAK_LOGO_ACTIVE : STREAK_LOGO_INACTIVE}
             imageStyle={styles.homeCarouselBadgeImage}
           />
         </View>

@@ -27,7 +27,7 @@ function HomeStatsBar({ strengthScore, workoutsCompleted, lifetimeVolumeLb, hasS
         <View style={styles.homeStatCellTop}>
           <View style={styles.homeStatIconWell}>
             <Image
-              source={require('../../../assets/images/targetlogo.png')}
+              source={require('../../../assets/images/icons/targetlogo.png')}
               style={styles.homeStatIcon}
             />
           </View>
@@ -48,7 +48,7 @@ function HomeStatsBar({ strengthScore, workoutsCompleted, lifetimeVolumeLb, hasS
         <View style={styles.homeStatCellTop}>
           <View style={styles.homeStatIconWell}>
             <Image
-              source={require('../../../assets/images/weighticon.png')}
+              source={require('../../../assets/images/icons/weighticon.png')}
               style={styles.homeStatIcon}
             />
           </View>

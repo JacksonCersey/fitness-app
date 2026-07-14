@@ -5,9 +5,9 @@ import { useGameTheme, useStyles } from '../../app/context/ThemeStylesContext';
 import { computeBestTrainingWeekStreak } from '../../utils/consecutiveWeekStreak';
 import { formatVolumeCompact } from '../../../utils/workoutStats';
 
-const STREAK_LOGO = require('../../../assets/images/streaklogo.png');
-const PERFECT_STREAK_LOGO = require('../../../assets/images/perfectstreaklogo.png');
-const WEIGHT_ICON = require('../../../assets/images/weighticon.png');
+const STREAK_LOGO = require('../../../assets/images/icons/streaklogo.png');
+const PERFECT_STREAK_LOGO = require('../../../assets/images/icons/perfectstreaklogo.png');
+const WEIGHT_ICON = require('../../../assets/images/icons/weighticon.png');
 
 const RING_SIZE = 140;
 const RING_STROKE = 10;

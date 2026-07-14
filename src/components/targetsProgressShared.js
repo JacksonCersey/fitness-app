@@ -207,21 +207,21 @@ function SplitWeekStripCell({ letter, icon, isToday, a11yLabel }) {
       </Text>
       {icon === 'streak' ? (
         <Image
-          source={require('../../assets/images/streaklogo.png')}
+          source={require('../../assets/images/icons/streaklogo.png')}
           style={styles.targetsSplitWeekStreakIcon}
           resizeMode="contain"
           accessibilityElementsHidden
         />
       ) : icon === 'perfect' ? (
         <Image
-          source={require('../../assets/images/perfectstreaklogo.png')}
+          source={require('../../assets/images/icons/perfectstreaklogo.png')}
           style={styles.targetsSplitWeekStreakIcon}
           resizeMode="contain"
           accessibilityElementsHidden
         />
       ) : icon === 'weight' ? (
         <Image
-          source={require('../../assets/images/weighticon.png')}
+          source={require('../../assets/images/icons/weighticon.png')}
           style={styles.targetsSplitWeekWeightIcon}
           resizeMode="contain"
           accessibilityElementsHidden

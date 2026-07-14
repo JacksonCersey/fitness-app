@@ -4,7 +4,6 @@ import { useWorkoutTheme } from '../context/ThemeStylesContext';
 import { Animated, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MAIN_TAB_SCREEN_KEYS, isMoreHubSlideOverlay, shouldUseSubscreenSlideTransition } from '../../constants/layout';
-import StreakScreen from '../../screens/StreakScreen';
 import MoreGoalsScreen from '../../screens/MoreGoalsScreen';
 import AppearanceScreen from '../../screens/AppearanceScreen';
 import ProfileScreen from '../../screens/ProfileScreen';
@@ -12,6 +11,7 @@ import SummaryScreen from '../../screens/SummaryScreen';
 import HistoryDayWorkoutsScreen from '../../screens/HistoryDayWorkoutsScreen';
 import StrengthMovementsScreen from '../../screens/StrengthMovementsScreen';
 import WeeklySplitPlannerScreen from '../../screens/WeeklySplitPlannerScreen';
+import PlanSplitTimelineScreen from '../../screens/PlanSplitTimelineScreen';
 import WorkoutScreen from '../../screens/WorkoutScreen';
 import { useActiveWorkout } from '../context/ActiveWorkoutContext';
 import { useAppStorage } from '../context/AppStorageContext';
@@ -19,6 +19,8 @@ import { useAppNavigation } from '../context/AppNavigationContext';
 import { useHistoryProgress } from '../context/HistoryProgressContext';
 import { buildHistoricalWorkoutSummaryContext } from '../../utils/historicalWorkoutSummary';
 import MainTabsNavigator from './MainTabsNavigator';
+import PlanSplitDotMorphOverlay from '../../components/plan/PlanSplitDotMorphOverlay';
+import { usePlanSplitTransition } from '../context/PlanSplitTransitionContext';
 
 function WorkoutScreenRoute() {
   const workoutTheme = useWorkoutTheme();
@@ -52,8 +54,6 @@ function WorkoutScreenRoute() {
     hasAnyLoggedSets,
     handleRequestCompleteWorkout,
     renderWorkoutStoredSetsForMovement,
-    weeklyPplCounts,
-    weeklySubcategorySetCounts,
     workoutCelebration,
     dismissWorkoutCelebration,
     editingSetKey,
@@ -96,8 +96,6 @@ function WorkoutScreenRoute() {
           hasAnyLoggedSets={hasAnyLoggedSets}
           onRequestCompleteWorkout={handleRequestCompleteWorkout}
           renderWorkoutStoredSetsForMovement={renderWorkoutStoredSetsForMovement}
-          weeklyPplCounts={weeklyPplCounts}
-          weeklySubcategorySetCounts={weeklySubcategorySetCounts}
           workoutCelebration={workoutCelebration}
           onDismissWorkoutCelebration={dismissWorkoutCelebration}
           editingSetKey={editingSetKey}
@@ -233,8 +231,16 @@ function SummaryScreenRoute() {
 }
 
 function SubscreenLayer() {
-  const { currentScreen, screenTransitionOpacity, moreSubscreenSlideX, subNavigatorReturnRef } =
-    useAppNavigation();
+  const {
+    currentScreen,
+    screenTransitionOpacity,
+    moreSubscreenSlideX,
+    subNavigatorReturnRef,
+    handleCloseSplitPlanner,
+    handleClosePlanSplitTimeline,
+    handleCloseStrengthMovements,
+    requestPlanInlineBuilder,
+  } = useAppNavigation();
   const {
     weeklySplitPlan,
     handleChangeWeeklySplitPlan,
@@ -242,9 +248,13 @@ function SubscreenLayer() {
     exerciseLookup,
     favoriteMovements,
     handleToggleFavoriteMovement,
+    savedWorkoutPlans,
+    dayWorkoutAssignments,
+    handleAssignWorkoutToDay,
+    handleSwapWorkoutBetweenDays,
+    handleSwapSplitDays,
     handleDeleteWorkout,
     weeklyWorkoutsLoggedCount,
-    weeklyStreakDays,
     consecutiveTrainingWeekStreak,
     profileName,
     profileNameDraft,
@@ -261,8 +271,6 @@ function SubscreenLayer() {
     handleSaveProfile,
     handleSaveGoalsOnly,
   } = useAppStorage();
-
-  const { handleCloseSplitPlanner, handleCloseStrengthMovements } = useAppNavigation();
 
   const {
     historyDayScreenTitle,
@@ -301,6 +309,27 @@ function SubscreenLayer() {
     );
   }
 
+  if (currentScreen === 'planSplitTimeline') {
+    return (
+      <>
+        <StatusBar barStyle="light-content" />
+        <PlanSplitTimelineScreen
+          screenTransitionOpacity={screenTransitionOpacity}
+          onBack={handleClosePlanSplitTimeline}
+          weeklySplitPlan={weeklySplitPlan}
+          dayWorkoutAssignments={dayWorkoutAssignments}
+          savedWorkoutPlans={savedWorkoutPlans}
+          workoutHistory={workoutHistory}
+          exerciseLookup={exerciseLookup}
+          onRequestCreateWorkoutForDay={requestPlanInlineBuilder}
+          onSwapSplitDays={handleSwapSplitDays}
+          onAssignWorkoutToDay={handleAssignWorkoutToDay}
+          onSwapWorkoutBetweenDays={handleSwapWorkoutBetweenDays}
+        />
+      </>
+    );
+  }
+
   if (currentScreen === 'strengthMovements') {
     return wrapSubscreenSlide(
       <>
@@ -312,6 +341,8 @@ function SubscreenLayer() {
           exerciseLookup={exerciseLookup}
           favoriteMovements={favoriteMovements}
           onToggleFavoriteMovement={handleToggleFavoriteMovement}
+          selectionMode={null}
+          onSelectMovement={null}
         />
       </>,
     );
@@ -339,19 +370,6 @@ function SubscreenLayer() {
           cardBg="#1E232B"
         />
       </>
-    );
-  }
-
-  if (currentScreen === 'streak') {
-    return wrapSubscreenSlide(
-      <StreakScreen
-        screenTransitionOpacity={screenTransitionOpacity}
-        onBack={handleReturnFromSubscreen}
-        weeklyWorkoutsLoggedCount={weeklyWorkoutsLoggedCount}
-        weeklyStreakDays={weeklyStreakDays}
-        weeklySplitPlan={weeklySplitPlan}
-        consecutiveTrainingWeekStreak={consecutiveTrainingWeekStreak}
-      />,
     );
   }
 
@@ -414,25 +432,40 @@ function SubscreenLayer() {
  */
 export default function AppNavigator({ workoutStartRef }) {
   const { currentScreen, subNavigatorReturnRef } = useAppNavigation();
+  const { keepPlanTabVisible, phase } = usePlanSplitTransition();
   const isMainTab = MAIN_TAB_SCREEN_KEYS.has(currentScreen);
   const isSubscreenOverlay = isMoreHubSlideOverlay(currentScreen, subNavigatorReturnRef.current);
-  const keepMainTabsVisible = isMainTab || isSubscreenOverlay;
-  const mainTabsInteractive = keepMainTabsVisible && !isSubscreenOverlay;
+  const isPlanSplitTimeline = currentScreen === 'planSplitTimeline';
+  const keepMainTabsVisible =
+    isMainTab || isSubscreenOverlay || (isPlanSplitTimeline && keepPlanTabVisible);
+  const mainTabsInteractive = keepMainTabsVisible && !isSubscreenOverlay && !isPlanSplitTimeline;
+  // During reverse, Plan must paint under the overlay even while timeline is still mounted.
+  const forceShowMainTabs = keepPlanTabVisible && (phase === 'forward' || phase === 'reverse');
 
   return (
     <View style={styles.root}>
       <View
-        style={[styles.mainTabsLayer, !keepMainTabsVisible && styles.mainTabsLayerHidden]}
+        style={[
+          styles.mainTabsLayer,
+          !keepMainTabsVisible && !forceShowMainTabs && styles.mainTabsLayerHidden,
+          forceShowMainTabs && styles.mainTabsLayerForceVisible,
+        ]}
         pointerEvents={mainTabsInteractive ? 'auto' : 'none'}
-        accessibilityElementsHidden={!keepMainTabsVisible}
-        importantForAccessibility={keepMainTabsVisible ? 'auto' : 'no-hide-descendants'}>
+        accessibilityElementsHidden={!mainTabsInteractive}
+        importantForAccessibility={mainTabsInteractive ? 'auto' : 'no-hide-descendants'}>
         <MainTabsNavigator workoutStartRef={workoutStartRef} />
       </View>
       {!isMainTab ? (
-        <View style={styles.subscreenLayer} pointerEvents="box-none">
+        <View
+          style={[
+            styles.subscreenLayer,
+            isPlanSplitTimeline && keepPlanTabVisible && styles.subscreenLayerOverPlan,
+          ]}
+          pointerEvents="box-none">
           <SubscreenLayer />
         </View>
       ) : null}
+      <PlanSplitDotMorphOverlay />
     </View>
   );
 }
@@ -449,9 +482,15 @@ const styles = StyleSheet.create({
   mainTabsLayerHidden: {
     opacity: 0,
   },
+  mainTabsLayerForceVisible: {
+    opacity: 1,
+  },
   subscreenLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 2,
+  },
+  subscreenLayerOverPlan: {
+    backgroundColor: 'transparent',
   },
   subscreenFallback: {
     flex: 1,

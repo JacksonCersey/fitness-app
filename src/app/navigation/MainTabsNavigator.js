@@ -1,6 +1,7 @@
-import React, { memo, useMemo, useRef } from 'react';
+import React, { memo, useEffect, useMemo, useRef } from 'react';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useGameTheme, useStyles, useWorkoutTheme } from '../context/ThemeStylesContext';
-import { Animated, StatusBar } from 'react-native';
+import { Animated, Easing, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   MAIN_TAB_NAV_BAR_HEIGHT,
@@ -12,6 +13,9 @@ import MainBottomTabBar from '../../navigation/bottomTabBar/MainBottomTabBar';
 import { useAppStorage } from '../context/AppStorageContext';
 import { useAppNavigation } from '../context/AppNavigationContext';
 import { useHistoryProgress } from '../context/HistoryProgressContext';
+import { usePlanSplitTransition } from '../context/PlanSplitTransitionContext';
+
+const PLAN_SPLIT_NAV_FADE_MS = 220;
 
 function MainTabsNavigator({ workoutStartRef }) {
   const styles = useStyles();
@@ -25,13 +29,15 @@ function MainTabsNavigator({ workoutStartRef }) {
     consecutivePerfectWeekStreak,
     scheduledDayAdherence,
     weeklySplitPlan,
-    weeklySubcategorySetCounts,
     workoutHistory,
     exerciseLookup,
     lifetimeVolumeLb,
-    weeklyPplCounts,
-    lastWorkoutPplBreakdown,
-    weekStartMondayForTargets,
+    savedWorkoutPlans,
+    dayWorkoutAssignments,
+    handleAssignWorkoutToDay,
+    handleSaveWorkoutForDay,
+    handleSwapWorkoutBetweenDays,
+    handleChangeWeeklySplitPlan,
   } = useAppStorage();
 
   const {
@@ -52,9 +58,34 @@ function MainTabsNavigator({ workoutStartRef }) {
     handleOpenMoreGoals,
     handleOpenMovementsFromMore,
     handleOpenSplitPlannerFromMore,
-    handleOpenStreakSubscreen,
+    handleOpenSplitPlannerFromPlan,
     handleOpenAppearance,
   } = useAppNavigation();
+
+  const { phase: planSplitPhase } = usePlanSplitTransition();
+
+  useEffect(() => {
+    if (planSplitPhase === 'forward') {
+      moreHubNavBarOpacity.stopAnimation();
+      Animated.timing(moreHubNavBarOpacity, {
+        toValue: 0,
+        duration: PLAN_SPLIT_NAV_FADE_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+      return;
+    }
+    if (planSplitPhase === 'reverse') {
+      moreHubNavBarOpacity.stopAnimation();
+      moreHubNavBarOpacity.setValue(0);
+      Animated.timing(moreHubNavBarOpacity, {
+        toValue: 1,
+        duration: PLAN_SPLIT_NAV_FADE_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [planSplitPhase, moreHubNavBarOpacity]);
 
   const {
     historyProgressSection,
@@ -70,6 +101,7 @@ function MainTabsNavigator({ workoutStartRef }) {
     strengthScoreSummary,
     handleOpenHistoryDayDetail,
     handleOpenHistoryFromMore,
+    handleOpenStreakFromMore,
     colors,
     isWeightLogModalVisible,
     closeWeightLogModal,
@@ -129,7 +161,7 @@ function MainTabsNavigator({ workoutStartRef }) {
       handleOpenMoreGoals,
       handleOpenMovementsFromMore,
       handleOpenSplitPlannerFromMore,
-      handleOpenStreakSubscreen,
+      handleOpenStreakFromMore,
       handleOpenHistoryFromMore,
       handleOpenAppearance,
     }),
@@ -142,7 +174,7 @@ function MainTabsNavigator({ workoutStartRef }) {
       handleOpenMoreGoals,
       handleOpenMovementsFromMore,
       handleOpenSplitPlannerFromMore,
-      handleOpenStreakSubscreen,
+      handleOpenStreakFromMore,
       handleOpenHistoryFromMore,
       handleOpenAppearance,
     ],
@@ -196,19 +228,27 @@ function MainTabsNavigator({ workoutStartRef }) {
   const mainTabsMusclesProps = useMemo(
     () => ({
       mainTabBottomReserve,
-      weeklyPplCounts,
-      weeklySubcategorySetCounts,
-      lastWorkoutPplBreakdown,
-      weekStartMonday: weekStartMondayForTargets,
       weeklySplitPlan,
+      workoutHistory,
+      exerciseLookup,
+      savedWorkoutPlans,
+      dayWorkoutAssignments,
+      onOpenSplitPlanner: handleOpenSplitPlannerFromPlan,
+      onAssignWorkoutToDay: handleAssignWorkoutToDay,
+      onSaveWorkoutForDay: handleSaveWorkoutForDay,
+      onChangeWeeklySplitPlan: handleChangeWeeklySplitPlan,
     }),
     [
       mainTabBottomReserve,
-      weeklyPplCounts,
-      weeklySubcategorySetCounts,
-      lastWorkoutPplBreakdown,
-      weekStartMondayForTargets,
       weeklySplitPlan,
+      workoutHistory,
+      exerciseLookup,
+      savedWorkoutPlans,
+      dayWorkoutAssignments,
+      handleOpenSplitPlannerFromPlan,
+      handleAssignWorkoutToDay,
+      handleSaveWorkoutForDay,
+      handleChangeWeeklySplitPlan,
     ],
   );
 
@@ -290,38 +330,41 @@ function MainTabsNavigator({ workoutStartRef }) {
   return (
     <>
       <StatusBar barStyle={gameTheme.statusBarStyle} />
-      <MainTabsLayout
-        edges={['top', 'left', 'right']}
-        safeAreaStyle={mainTabsSafeAreaStyle}
-        contentShellBackgroundColor={mainTabsContentShellBackgroundColor}
-        screenTransitionOpacity={isSubscreenOverlay ? 1 : screenTransitionOpacity}
-        bottomEdgeFadeColor={mainTabsBottomFadeColor}
-        bottomEdgeFadeHeight={mainTabsBottomFadeHeight}
-        bottomBar={
-          <Animated.View style={{ opacity: moreHubNavBarOpacity }}>
-            <MainBottomTabBar
-              currentScreen={tabScreen}
-              bottomInset={insets.bottom}
-              mainTabTransitionLockRef={mainTabTransitionLockRef}
-              onPressHome={handleReturnToMenu}
-              onPressHistory={handleOpenHistory}
-              onPressSettings={handleOpenSettings}
-              onPressMuscles={handlePressMusclesTab}
-              onPressStartWorkout={onPressStartWorkout}
-            />
-          </Animated.View>
-        }
-      >
-        <MainTabsRoot
-          activeScreen={tabScreen}
-          mainTabTransitionLockRef={mainTabTransitionLockRef}
-          menu={mainTabsMenuProps}
-          settings={mainTabsSettingsProps}
-          history={mainTabsHistoryProps}
-          muscles={mainTabsMusclesProps}
-          weightLog={mainTabsWeightLogProps}
-        />
-      </MainTabsLayout>
+      {/* Provider wraps tabs + nav so Plan sheets portal in front of the floating tab bar. */}
+      <BottomSheetModalProvider>
+        <MainTabsLayout
+          edges={['top', 'left', 'right']}
+          safeAreaStyle={mainTabsSafeAreaStyle}
+          contentShellBackgroundColor={mainTabsContentShellBackgroundColor}
+          screenTransitionOpacity={isSubscreenOverlay ? 1 : screenTransitionOpacity}
+          bottomEdgeFadeColor={mainTabsBottomFadeColor}
+          bottomEdgeFadeHeight={mainTabsBottomFadeHeight}
+          bottomBar={
+            <Animated.View style={{ opacity: moreHubNavBarOpacity }}>
+              <MainBottomTabBar
+                currentScreen={tabScreen}
+                bottomInset={insets.bottom}
+                mainTabTransitionLockRef={mainTabTransitionLockRef}
+                onPressHome={handleReturnToMenu}
+                onPressHistory={handleOpenHistory}
+                onPressSettings={handleOpenSettings}
+                onPressMuscles={handlePressMusclesTab}
+                onPressStartWorkout={onPressStartWorkout}
+              />
+            </Animated.View>
+          }
+        >
+          <MainTabsRoot
+            activeScreen={tabScreen}
+            mainTabTransitionLockRef={mainTabTransitionLockRef}
+            menu={mainTabsMenuProps}
+            settings={mainTabsSettingsProps}
+            history={mainTabsHistoryProps}
+            muscles={mainTabsMusclesProps}
+            weightLog={mainTabsWeightLogProps}
+          />
+        </MainTabsLayout>
+      </BottomSheetModalProvider>
     </>
   );
 }
