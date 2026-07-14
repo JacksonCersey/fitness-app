@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useRef } from 'react';
 import { useStyles } from '../app/context/ThemeStylesContext';
 import { Animated, Image, PanResponder, Text, TouchableOpacity, View } from 'react-native';
+import ExerciseDiagramIcon from './ExerciseDiagramIcon';
 
 const DELETE_REVEAL_WIDTH = 80;
 
@@ -10,6 +11,8 @@ function ActiveWorkoutExerciseSwipeRow({
   setCount,
   subtitle = null,
   iconSource,
+  iconIsDiagram = false,
+  diagramPanels = 2,
   onOpen,
   onRequestDelete,
 }) {
@@ -89,7 +92,11 @@ function ActiveWorkoutExerciseSwipeRow({
           accessibilityLabel={`Open ${movementLabel}`}>
           <View style={styles.activeWorkoutExerciseIconWell}>
             {iconSource ? (
-              <Image source={iconSource} style={styles.activeWorkoutExerciseIcon} resizeMode="contain" />
+              iconIsDiagram ? (
+                <ExerciseDiagramIcon source={iconSource} size={44} panels={diagramPanels} />
+              ) : (
+                <Image source={iconSource} style={styles.activeWorkoutExerciseIcon} resizeMode="contain" />
+              )
             ) : null}
           </View>
           <View style={styles.activeWorkoutExerciseTextCol}>

@@ -25,6 +25,10 @@ import { aggregateSessionMuscleHeatFromSets } from '../../data/workoutMuscleHeat
 import ActiveWorkoutExerciseSwipeRow from '../components/ActiveWorkoutExerciseSwipeRow';
 import WorkoutCelebrationBanner from '../components/WorkoutCelebrationBanner';
 import WorkoutSessionTargetsSheetContent from '../components/WorkoutSessionTargetsSheetContent';
+import {
+  getExerciseDiagramPanelCount,
+  getExerciseDiagramSource,
+} from '../utils/exerciseDiagrams';
 import { formatWorkoutTimerHms } from '../utils/formatWorkout';
 import { getHighlightIconSourceForMuscleLabel } from '../utils/splitDayHighlightIcons';
 import { mergeWorkoutSlotsToExerciseMap } from '../utils/workoutSlots';
@@ -469,15 +473,27 @@ function WorkoutScreen({
 
   const iconForExerciseName = useCallback(
     (name) => {
+      const diagram = getExerciseDiagramSource(name);
+      if (diagram) {
+        return {
+          source: diagram,
+          isDiagram: true,
+          panels: getExerciseDiagramPanelCount(name),
+        };
+      }
       const meta = exerciseLookup[name?.toLowerCase?.() ?? ''];
       const primary = meta?.primaryMuscles?.[0];
-      return getHighlightIconSourceForMuscleLabel(primary);
+      return {
+        source: getHighlightIconSourceForMuscleLabel(primary),
+        isDiagram: false,
+        panels: 2,
+      };
     },
     [exerciseLookup],
   );
 
   const renderExerciseRow = (slot) => {
-    const iconSource = iconForExerciseName(slot.name);
+    const icon = iconForExerciseName(slot.name);
     const count = (setsByMovement[slot.id] || []).length;
     return (
       <ActiveWorkoutExerciseSwipeRow
@@ -485,7 +501,9 @@ function WorkoutScreen({
         workoutSlotId={slot.id}
         movementLabel={slot.name}
         setCount={count}
-        iconSource={iconSource}
+        iconSource={icon.source}
+        iconIsDiagram={icon.isDiagram}
+        diagramPanels={icon.panels}
         onOpen={onOpenLogSetSheet}
         onRequestDelete={onRequestRemoveMovementFromWorkout}
       />

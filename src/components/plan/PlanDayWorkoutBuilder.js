@@ -11,6 +11,10 @@ import { useGameTheme, useStyles, useWorkoutTheme } from '../../app/context/Them
 import ActiveWorkoutExerciseSwipeRow from '../ActiveWorkoutExerciseSwipeRow';
 import { WORKOUT_SHEET_SPRING_CONFIG } from '../../constants/workoutSheetAnimation';
 import { EXERCISE_DATABASE } from '../../../data/exerciseDatabase';
+import {
+  getExerciseDiagramPanelCount,
+  getExerciseDiagramSource,
+} from '../../utils/exerciseDiagrams';
 import { getHighlightIconSourceForMuscleLabel } from '../../utils/splitDayHighlightIcons';
 
 const SHEET_SNAP_POINTS = ['88%'];
@@ -196,10 +200,22 @@ function PlanDayWorkoutBuilder({
   }, []);
 
   const iconForMovement = useCallback((movementName) => {
+    const diagram = getExerciseDiagramSource(movementName);
+    if (diagram) {
+      return {
+        source: diagram,
+        isDiagram: true,
+        panels: getExerciseDiagramPanelCount(movementName),
+      };
+    }
     const match = EXERCISE_DATABASE.find(
       (item) => item.name.trim().toLowerCase() === String(movementName || '').trim().toLowerCase(),
     );
-    return getHighlightIconSourceForMuscleLabel(match?.primaryMuscles?.[0]);
+    return {
+      source: getHighlightIconSourceForMuscleLabel(match?.primaryMuscles?.[0]),
+      isDiagram: false,
+      panels: 2,
+    };
   }, []);
 
   return (
@@ -221,18 +237,23 @@ function PlanDayWorkoutBuilder({
             </View>
           </TouchableOpacity>
         ) : (
-          list.map((exercise) => (
-            <ActiveWorkoutExerciseSwipeRow
-              key={exercise.id}
-              workoutSlotId={exercise.id}
-              movementLabel={exercise.movement}
-              setCount={0}
-              subtitle={formatTargetSubtitle(exercise)}
-              iconSource={iconForMovement(exercise.movement)}
-              onOpen={openTargetSheet}
-              onRequestDelete={handleRemoveExercise}
-            />
-          ))
+          list.map((exercise) => {
+            const icon = iconForMovement(exercise.movement);
+            return (
+              <ActiveWorkoutExerciseSwipeRow
+                key={exercise.id}
+                workoutSlotId={exercise.id}
+                movementLabel={exercise.movement}
+                setCount={0}
+                subtitle={formatTargetSubtitle(exercise)}
+                iconSource={icon.source}
+                iconIsDiagram={icon.isDiagram}
+                diagramPanels={icon.panels}
+                onOpen={openTargetSheet}
+                onRequestDelete={handleRemoveExercise}
+              />
+            );
+          })
         )}
 
         {list.length > 0 ? (

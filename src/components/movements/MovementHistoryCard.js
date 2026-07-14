@@ -1,8 +1,13 @@
 import React, { memo, useMemo } from 'react';
 import { Image, Text, View } from 'react-native';
 import { useStyles } from '../../app/context/ThemeStylesContext';
+import {
+  getExerciseDiagramPanelCount,
+  getExerciseDiagramSource,
+} from '../../utils/exerciseDiagrams';
 import { formatRecentSetLine, getMovementMaxDisplay } from '../../utils/movementSetHistory';
 import { getHighlightChipForMovement } from '../../utils/splitDayHighlightIcons';
+import ExerciseDiagramIcon from '../ExerciseDiagramIcon';
 import MovementWeightSparkline from './MovementWeightSparkline';
 
 /**
@@ -35,17 +40,28 @@ function MovementHistoryCard({
     () => getHighlightChipForMovement(movement, exerciseLookup, primaryMuscle),
     [movement, primaryMuscle, exerciseLookup],
   );
+  const diagramSource = useMemo(() => getExerciseDiagramSource(movement), [movement]);
+  const diagramPanels = useMemo(() => getExerciseDiagramPanelCount(movement), [movement]);
   const recentLines = summary?.recentSets?.slice(0, 3) ?? [];
   const hasTargetLine = Number(targetSets) > 0 && Number(targetReps) > 0;
   const showSparkline = Array.isArray(weightAverages);
+  const showDiagram = Boolean(diagramSource) || showImagePlaceholder;
 
   return (
     <View style={styles.homeMovementCard}>
       <View style={styles.homeMovementCardTop}>
-        {showImagePlaceholder ? (
+        {showDiagram ? (
           <View style={styles.homeMovementImagePlaceholder}>
-            {muscleChip ? <Image source={muscleChip.source} style={styles.homeMovementPlaceholderIcon} /> : null}
-            <Text style={styles.homeMovementPlaceholderText}>image</Text>
+            {diagramSource ? (
+              <ExerciseDiagramIcon source={diagramSource} size={48} panels={diagramPanels} />
+            ) : muscleChip ? (
+              <>
+                <Image source={muscleChip.source} style={styles.homeMovementPlaceholderIcon} />
+                <Text style={styles.homeMovementPlaceholderText}>image</Text>
+              </>
+            ) : (
+              <Text style={styles.homeMovementPlaceholderText}>image</Text>
+            )}
           </View>
         ) : muscleChip ? (
           <View style={styles.homeMovementChipWell}>

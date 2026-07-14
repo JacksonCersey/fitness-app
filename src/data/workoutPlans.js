@@ -20,6 +20,7 @@ const DEFAULT_WORKOUT_TEMPLATES = {
       exerciseTemplate('Incline Bench Press', 3, 10),
       exerciseTemplate('Lateral Raise', 3, 12),
       exerciseTemplate('Triceps Pushdown', 3, 12),
+      exerciseTemplate('Pec Deck Fly', 3, 12),
     ],
   },
   pull: {
@@ -28,6 +29,7 @@ const DEFAULT_WORKOUT_TEMPLATES = {
       exerciseTemplate('Deadlift', 4, 5),
       exerciseTemplate('Barbell Row', 4, 8),
       exerciseTemplate('Lat Pulldown', 3, 10),
+      exerciseTemplate('Machine Seated Row', 3, 10),
       exerciseTemplate('Face Pull', 3, 15),
       exerciseTemplate('Barbell Curl', 3, 10),
     ],
@@ -49,6 +51,7 @@ const DEFAULT_WORKOUT_TEMPLATES = {
       exerciseTemplate('Barbell Row', 4, 8),
       exerciseTemplate('Overhead Press', 3, 8),
       exerciseTemplate('Lat Pulldown', 3, 10),
+      exerciseTemplate('Machine Chest Press', 3, 10),
       exerciseTemplate('Lateral Raise', 3, 12),
     ],
   },

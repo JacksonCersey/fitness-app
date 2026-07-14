@@ -1,8 +1,13 @@
 import React, { memo, useMemo } from 'react';
 import { useStyles } from '../app/context/ThemeStylesContext';
 import { Image, Text, View } from 'react-native';
+import {
+  getExerciseDiagramPanelCount,
+  getExerciseDiagramSource,
+} from '../utils/exerciseDiagrams';
 import { getMovementMaxDisplay } from '../utils/movementSetHistory';
 import { getHighlightChipForMovement } from '../utils/splitDayHighlightIcons';
+import ExerciseDiagramIcon from './ExerciseDiagramIcon';
 
 /**
  * Compact movement box for the horizontal “recently completed” strip.
@@ -19,6 +24,9 @@ function MovementRecentScrollCard({ row, lastCompletedAtISO, exerciseLookup }) {
     () => getHighlightChipForMovement(row.movement, exerciseLookup, row.primaryMuscle),
     [row.movement, row.primaryMuscle, exerciseLookup],
   );
+  const diagramSource = useMemo(() => getExerciseDiagramSource(row.movement), [row.movement]);
+  const diagramPanels = useMemo(() => getExerciseDiagramPanelCount(row.movement), [row.movement]);
+  const chipIconSource = diagramSource ?? muscleChip?.source ?? null;
 
   const dateLabel = useMemo(() => {
     const d = new Date(lastCompletedAtISO);
@@ -28,14 +36,20 @@ function MovementRecentScrollCard({ row, lastCompletedAtISO, exerciseLookup }) {
 
   return (
     <View style={styles.movementsRecentScrollCard}>
-      {muscleChip ? (
+      {chipIconSource || muscleChip ? (
         <View style={styles.movementsRecentScrollChip}>
           <View style={styles.movementsRecentScrollIconWell}>
-            <Image source={muscleChip.source} style={styles.movementsRecentScrollIcon} resizeMode="contain" />
+            {diagramSource ? (
+              <ExerciseDiagramIcon source={diagramSource} size={36} panels={diagramPanels} />
+            ) : chipIconSource ? (
+              <Image source={chipIconSource} style={styles.movementsRecentScrollIcon} resizeMode="contain" />
+            ) : null}
           </View>
-          <Text style={styles.movementsRecentScrollChipLabel} numberOfLines={1}>
-            {muscleChip.groupLabel}
-          </Text>
+          {muscleChip ? (
+            <Text style={styles.movementsRecentScrollChipLabel} numberOfLines={1}>
+              {muscleChip.groupLabel}
+            </Text>
+          ) : null}
         </View>
       ) : null}
 

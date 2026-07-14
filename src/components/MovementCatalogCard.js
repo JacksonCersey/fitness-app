@@ -1,9 +1,14 @@
 import React, { memo, useMemo } from 'react';
 import { useStyles } from '../app/context/ThemeStylesContext';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
+import {
+  getExerciseDiagramPanelCount,
+  getExerciseDiagramSource,
+} from '../utils/exerciseDiagrams';
 import { isFavoriteMovement } from '../utils/movementFavorites';
 import { formatRecentSetLine, getMovementMaxDisplay } from '../utils/movementSetHistory';
 import { getHighlightChipForMovement } from '../utils/splitDayHighlightIcons';
+import ExerciseDiagramIcon from './ExerciseDiagramIcon';
 
 /**
  * @param {{
@@ -22,7 +27,11 @@ function MovementCatalogCard({ row, exerciseLookup, favoriteMovements, onToggleF
     () => getHighlightChipForMovement(row.movement, exerciseLookup, row.primaryMuscle),
     [row.movement, row.primaryMuscle, exerciseLookup],
   );
+  const diagramSource = useMemo(() => getExerciseDiagramSource(row.movement), [row.movement]);
+  const diagramPanels = useMemo(() => getExerciseDiagramPanelCount(row.movement), [row.movement]);
   const canSelect = typeof onSelectMovement === 'function';
+  const groupLabel = muscleChip?.groupLabel ?? row.primaryMuscle;
+  const chipIconSource = diagramSource ?? muscleChip?.source ?? null;
 
   return (
     <TouchableOpacity
@@ -37,20 +46,26 @@ function MovementCatalogCard({ row, exerciseLookup, favoriteMovements, onToggleF
       accessibilityRole={canSelect ? 'button' : undefined}
       accessibilityLabel={canSelect ? `Choose ${row.movement}` : undefined}>
       <View style={styles.strengthMovementCardTopRow}>
-        {muscleChip ? (
+        {groupLabel || chipIconSource ? (
           <View style={styles.strengthMovementMuscleChipRow}>
             <View style={styles.strengthMovementMuscleIconWell}>
-              <Image source={muscleChip.source} style={styles.strengthMovementMuscleIcon} resizeMode="contain" />
+              {diagramSource ? (
+                <ExerciseDiagramIcon source={diagramSource} size={50} panels={diagramPanels} />
+              ) : chipIconSource ? (
+                <Image source={chipIconSource} style={styles.strengthMovementMuscleIcon} resizeMode="contain" />
+              ) : null}
             </View>
-            <View style={styles.strengthMovementMuscleTextCol}>
-              <Text
-                style={[
-                  styles.strengthMovementMuscleChipLabel,
-                  !row.isLogged && styles.strengthMovementTextUnlogged,
-                ]}>
-                {muscleChip.groupLabel}
-              </Text>
-            </View>
+            {groupLabel ? (
+              <View style={styles.strengthMovementMuscleTextCol}>
+                <Text
+                  style={[
+                    styles.strengthMovementMuscleChipLabel,
+                    !row.isLogged && styles.strengthMovementTextUnlogged,
+                  ]}>
+                  {groupLabel}
+                </Text>
+              </View>
+            ) : null}
           </View>
         ) : (
           <View style={[styles.strengthMovementMuscleChipRow, styles.strengthMovementMuscleChipPlaceholder]}>
