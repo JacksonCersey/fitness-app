@@ -159,6 +159,86 @@ function buildLongHistoryWorkouts() {
   return workouts;
 }
 
+/**
+ * Long history where each lift gets heavier over time (progressive overload).
+ * `i = 0` is the most recent / strongest session.
+ */
+function buildProgressiveStrengthWorkouts(sessionCount = 72) {
+  const templates = [
+    {
+      build: (step) => ({
+        'Bench Press': [
+          { reps: 5, weight: 135 + step * 5, elapsedSeconds: 60 },
+          { reps: 5, weight: 135 + step * 5, elapsedSeconds: 65 },
+          { reps: 5, weight: Math.max(95, 125 + step * 5), elapsedSeconds: 70 },
+        ],
+        'Incline Bench Press': [
+          { reps: 8, weight: 95 + step * 2.5, elapsedSeconds: 52 },
+          { reps: 8, weight: 95 + step * 2.5, elapsedSeconds: 55 },
+        ],
+        'Overhead Press': [{ reps: 6, weight: 75 + step * 2.5, elapsedSeconds: 58 }],
+      }),
+    },
+    {
+      build: (step) => ({
+        'Barbell Row': [
+          { reps: 8, weight: 115 + step * 5, elapsedSeconds: 60 },
+          { reps: 8, weight: 115 + step * 5, elapsedSeconds: 65 },
+        ],
+        'Pull Up': [
+          { reps: 6, weight: Math.max(0, step * 2.5 - 5), elapsedSeconds: 45 },
+          { reps: 5, weight: Math.max(0, step * 2.5 - 5), elapsedSeconds: 50 },
+        ],
+        Deadlift: [{ reps: 3, weight: 185 + step * 10, elapsedSeconds: 110 }],
+      }),
+    },
+    {
+      build: (step) => ({
+        Squat: [
+          { reps: 5, weight: 155 + step * 5, elapsedSeconds: 90 },
+          { reps: 5, weight: 155 + step * 5, elapsedSeconds: 95 },
+          { reps: 5, weight: Math.max(135, 145 + step * 5), elapsedSeconds: 100 },
+        ],
+        'Leg Press': [
+          { reps: 10, weight: 270 + step * 10, elapsedSeconds: 70 },
+          { reps: 10, weight: 270 + step * 10, elapsedSeconds: 75 },
+        ],
+        'Romanian Deadlift': [{ reps: 8, weight: 135 + step * 5, elapsedSeconds: 80 }],
+      }),
+    },
+    {
+      build: (step) => ({
+        'Bench Press': [
+          { reps: 8, weight: 115 + step * 5, elapsedSeconds: 55 },
+          { reps: 8, weight: 115 + step * 5, elapsedSeconds: 58 },
+        ],
+        Squat: [
+          { reps: 8, weight: 135 + step * 5, elapsedSeconds: 85 },
+          { reps: 8, weight: 135 + step * 5, elapsedSeconds: 88 },
+        ],
+        'Barbell Row': [{ reps: 10, weight: 95 + step * 5, elapsedSeconds: 62 }],
+      }),
+    },
+  ];
+
+  const workouts = [];
+  for (let i = 0; i < sessionCount; i += 1) {
+    // i=0 newest/strongest; higher i = older/weaker
+    const sessionsFromStart = sessionCount - 1 - i;
+    const step = Math.floor(sessionsFromStart / templates.length);
+    const template = templates[sessionsFromStart % templates.length];
+    workouts.push(
+      makeWorkout(
+        `progress-${sessionsFromStart}`,
+        1 + i * 3,
+        template.build(step),
+        2800 + (sessionsFromStart % 6) * 90,
+      ),
+    );
+  }
+  return workouts;
+}
+
 /** @typedef {import('../../app/storage/devUserStorage').DevUserSnapshot} DevUserSnapshot */
 
 /** Dev persona that is wiped and re-seeded every time you select it (onboarding testing). */
@@ -197,6 +277,10 @@ const DEV_USER_META = {
   history: {
     label: 'Long history',
     description: 'Many months of workouts for calendar views',
+  },
+  progressive: {
+    label: 'Getting stronger',
+    description: 'Long history with weights climbing every session',
   },
 };
 
@@ -320,6 +404,23 @@ const DEV_USER_BUILDERS = {
     ],
     weeklySplitPlan: getPushPullLegsSplit(),
     favoriteMovements: ['squat', 'barbell row'],
+    onboardingComplete: true,
+    strengthScoreDisplayed: null,
+  }),
+
+  progressive: () => ({
+    profileName: 'Sam',
+    profileHeightIn: 70,
+    profileGoalWeightLb: 190,
+    workoutHistory: buildProgressiveStrengthWorkouts(72),
+    weightLogs: [
+      makeWeightLog('prog-w1', 210, 168),
+      makeWeightLog('prog-w2', 140, 172),
+      makeWeightLog('prog-w3', 70, 176),
+      makeWeightLog('prog-w4', 0, 180),
+    ],
+    weeklySplitPlan: getPushPullLegsSplit(),
+    favoriteMovements: ['bench press', 'squat', 'deadlift'],
     onboardingComplete: true,
     strengthScoreDisplayed: null,
   }),
