@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useStyles, useWorkoutTheme } from '../app/context/ThemeStylesContext';
+import { useGameTheme, useStyles, useWorkoutTheme } from '../app/context/ThemeStylesContext';
 import { Modal, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
@@ -38,6 +38,7 @@ function LogSheetRestTimer({
   bottomInset = 0,
 }) {
   const styles = useStyles();
+  const theme = useGameTheme();
   const wt = useWorkoutTheme();
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pickMinutes, setPickMinutes] = useState(1);
@@ -157,11 +158,11 @@ function LogSheetRestTimer({
             </View>
           </View>
           <TouchableOpacity
-            style={[styles.menuPrimaryButton, { backgroundColor: wt.primaryButtonBg }]}
+            style={[styles.menuPrimaryButton, { backgroundColor: theme.navAccent }]}
             onPress={applyPicker}
             accessibilityRole="button"
             accessibilityLabel="Set rest timer">
-            <Text style={[styles.menuPrimaryButtonText, { color: wt.primaryButtonText }]}>Set rest</Text>
+            <Text style={[styles.menuPrimaryButtonText, { color: '#FFFFFF' }]}>Set rest</Text>
           </TouchableOpacity>
         </View>
       </Modal>

@@ -27,11 +27,6 @@ import WorkoutCelebrationBanner from '../components/WorkoutCelebrationBanner';
 import WorkoutSessionTargetsSheetContent from '../components/WorkoutSessionTargetsSheetContent';
 import { formatWorkoutTimerHms } from '../utils/formatWorkout';
 import { getHighlightIconSourceForMuscleLabel } from '../utils/splitDayHighlightIcons';
-import {
-  addSessionToSubcategoryCounts,
-  countActiveWorkoutSetsByPpl,
-  mergeWeeklyPplWithSession,
-} from '../utils/weeklyPplSetTotals';
 import { mergeWorkoutSlotsToExerciseMap } from '../utils/workoutSlots';
 import LogSheetMovementHistorySheet from '../components/LogSheetMovementHistorySheet';
 import LogSheetRestTimer, { DEFAULT_REST_SECONDS } from '../components/LogSheetRestTimer';
@@ -89,8 +84,6 @@ function WorkoutScreen({
   hasAnyLoggedSets,
   onRequestCompleteWorkout,
   renderWorkoutStoredSetsForMovement,
-  weeklyPplCounts,
-  weeklySubcategorySetCounts,
   workoutCelebration,
   onDismissWorkoutCelebration,
   editingSetKey,
@@ -189,10 +182,10 @@ function WorkoutScreen({
       borderTopRightRadius: 18,
       borderWidth: 1,
       borderBottomWidth: 0,
-      borderColor: 'rgba(255, 255, 255, 0.16)',
+      borderColor: theme.borderSubtle,
       backgroundColor: wt.splitModalCardBg,
     }),
-    [wt.splitModalCardBg],
+    [theme.borderSubtle, wt.splitModalCardBg],
   );
 
   useEffect(() => {
@@ -298,14 +291,14 @@ function WorkoutScreen({
   const renderLogSheetSaveButton = useCallback(
     () => (
       <TouchableOpacity
-        style={[styles.menuPrimaryButton, { backgroundColor: wt.primaryButtonBg }]}
+        style={[styles.menuPrimaryButton, { backgroundColor: theme.navAccent }]}
         onPress={() => commitNotepadSet()}
         accessibilityRole="button"
         accessibilityLabel="Save set">
-        <Text style={[styles.menuPrimaryButtonText, { color: wt.primaryButtonText }]}>Save set</Text>
+        <Text style={[styles.menuPrimaryButtonText, { color: '#FFFFFF' }]}>Save set</Text>
       </TouchableOpacity>
     ),
-    [commitNotepadSet, wt.primaryButtonBg, wt.primaryButtonText],
+    [commitNotepadSet, theme.navAccent],
   );
 
   const renderLogSheetFooter = useCallback(
@@ -463,30 +456,6 @@ function WorkoutScreen({
     [workoutMovementOrder, setsByMovement],
   );
 
-  const sessionPplCounts = useMemo(
-    () => countActiveWorkoutSetsByPpl(setsMergedForPplHeat, exerciseLookup),
-    [setsMergedForPplHeat, exerciseLookup],
-  );
-
-  const weeklyPplWithSession = useMemo(
-    () =>
-      mergeWeeklyPplWithSession(
-        weeklyPplCounts ?? { push: 0, pull: 0, legs: 0 },
-        sessionPplCounts,
-      ),
-    [weeklyPplCounts, sessionPplCounts],
-  );
-
-  const weeklySubWithSession = useMemo(
-    () =>
-      addSessionToSubcategoryCounts(
-        weeklySubcategorySetCounts ?? { push: {}, pull: {}, legs: {} },
-        setsMergedForPplHeat,
-        exerciseLookup,
-      ),
-    [weeklySubcategorySetCounts, setsMergedForPplHeat, exerciseLookup],
-  );
-
   const sessionMuscleActivation = useMemo(
     () => aggregateSessionMuscleHeatFromSets(setsMergedForPplHeat, exerciseLookup),
     [setsMergedForPplHeat, exerciseLookup],
@@ -526,6 +495,13 @@ function WorkoutScreen({
   return (
     <Animated.View style={[styles.screenFadeContainer, styles.activeWorkoutRoot, { opacity: screenTransitionOpacity }]}>
       <View style={[styles.activeWorkoutHeaderPad, { paddingTop: insets.top + 6 }]}>
+        <Text
+          style={[
+            styles.activeWorkoutTimerLabel,
+            workoutTimerPaused && styles.activeWorkoutTimerLabelPaused,
+          ]}>
+          {workoutTimerPaused ? 'PAUSED' : 'SESSION TIME'}
+        </Text>
         <Text style={[styles.activeWorkoutTimer, { color: wt.textPrimary }]}>{formatWorkoutTimerHms(elapsedSeconds)}</Text>
       </View>
 
@@ -537,17 +513,36 @@ function WorkoutScreen({
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        {workoutMovementOrder.map((m) => renderExerciseRow(m))}
-        <TouchableOpacity
-          style={styles.activeWorkoutAddRow}
-          onPress={handlePressAddMovement}
-          accessibilityRole="button"
-          accessibilityLabel="Add movement">
-          <View style={styles.activeWorkoutAddIconBox}>
-            <Text style={styles.activeWorkoutAddPlus}>+</Text>
-          </View>
-          <Text style={styles.activeWorkoutAddLabel}>Add movement</Text>
-        </TouchableOpacity>
+        {workoutMovementOrder.length === 0 ? (
+          <TouchableOpacity
+            style={styles.activeWorkoutEmptyCard}
+            onPress={handlePressAddMovement}
+            activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityLabel="Add your first movement">
+            <View style={styles.activeWorkoutAddIconBox}>
+              <Text style={styles.activeWorkoutAddPlus}>+</Text>
+            </View>
+            <View style={styles.activeWorkoutEmptyTextCol}>
+              <Text style={styles.activeWorkoutEmptyTitle}>Add your first movement</Text>
+              <Text style={styles.activeWorkoutEmptySubtitle}>Tap to search exercises</Text>
+            </View>
+          </TouchableOpacity>
+        ) : (
+          workoutMovementOrder.map((m) => renderExerciseRow(m))
+        )}
+        {workoutMovementOrder.length > 0 ? (
+          <TouchableOpacity
+            style={styles.activeWorkoutAddRow}
+            onPress={handlePressAddMovement}
+            accessibilityRole="button"
+            accessibilityLabel="Add movement">
+            <View style={styles.activeWorkoutAddIconBox}>
+              <Text style={styles.activeWorkoutAddPlus}>+</Text>
+            </View>
+            <Text style={styles.activeWorkoutAddLabel}>Add movement</Text>
+          </TouchableOpacity>
+        ) : null}
       </ScrollView>
 
       <View style={[styles.activeWorkoutBottomBar, { paddingBottom: bottomBarPad }]}>
@@ -574,7 +569,7 @@ function WorkoutScreen({
         onPress={handleCancelWorkout}
         accessibilityRole="button"
         accessibilityLabel="Cancel workout">
-        <Text style={[styles.workoutCloseButtonText, { color: theme.navBack }]}>✕</Text>
+        <Text style={[styles.workoutCloseButtonText, { color: '#FFFFFF' }]}>✕</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -630,7 +625,6 @@ function WorkoutScreen({
                 styles.activeWorkoutSheetSearch,
                 {
                   backgroundColor: wt.splitModalInnerBg,
-                  borderColor: wt.inputBorder,
                   color: wt.inputText,
                 },
               ]}
@@ -741,7 +735,7 @@ function WorkoutScreen({
                 styles.notepadTwinRow,
                 {
                   backgroundColor: wt.splitModalInnerBg,
-                  borderColor: wt.inputBorder,
+                  borderColor: 'rgba(255, 43, 58, 0.25)',
                 },
               ]}>
               {activeIsBodyweightOnly ? (
@@ -801,11 +795,11 @@ function WorkoutScreen({
                 </>
               )}
               <TouchableOpacity
-                style={[styles.notepadAdvanceButton, { backgroundColor: wt.primaryButtonBg }]}
+                style={[styles.notepadAdvanceButton, { backgroundColor: theme.navAccent }]}
                 onPress={handleNotepadAdvancePress}
                 accessibilityRole="button"
                 accessibilityLabel={notepadAdvanceLabel}>
-                <Text style={[styles.notepadAdvanceButtonText, { color: wt.primaryButtonText }]}>
+                <Text style={[styles.notepadAdvanceButtonText, { color: '#FFFFFF' }]}>
                   {notepadAdvanceLabel}
                 </Text>
               </TouchableOpacity>
@@ -856,8 +850,6 @@ function WorkoutScreen({
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
           <WorkoutSessionTargetsSheetContent
-            weeklyPplCountsWithSession={weeklyPplWithSession}
-            weeklySubcategorySetCountsWithSession={weeklySubWithSession}
             sessionActivationBySlug={sessionMuscleActivation}
             onClose={closeTargetsSheet}
           />
