@@ -30,6 +30,8 @@ function StrengthMovementsScreen({
   exerciseLookup,
   favoriteMovements,
   onToggleFavoriteMovement,
+  selectionMode = null,
+  onSelectMovement = null,
 }) {
   const styles = useStyles();
   const theme = useGameTheme();
@@ -123,11 +125,12 @@ function StrengthMovementsScreen({
           </View>
 
           <Text style={[styles.menuMoreBodyText, { marginBottom: 12 }]}>
-            Tap a muscle group to expand it. Logged movements show your max and recent sets; open Not logged yet inside
-            each group for the rest. Star any movement to add it to Favorites.
+            {selectionMode === 'workoutPlan'
+              ? 'Tap any movement to add it to the workout you are building.'
+              : 'Tap a muscle group to expand it. Logged movements show your max and recent sets; open Not logged yet inside each group for the rest. Star any movement to add it to Favorites.'}
           </Text>
 
-          {recentCompletedMovements.length > 0 ? (
+          {selectionMode == null && recentCompletedMovements.length > 0 ? (
             <View style={styles.movementsRecentStripBlock}>
               <Text style={styles.movementsRecentStripHeading}>Recently completed</Text>
               <ScrollView
@@ -214,6 +217,7 @@ function StrengthMovementsScreen({
                                 exerciseLookup={exerciseLookup}
                                 favoriteMovements={favoriteMovements}
                                 onToggleFavorite={handleToggleFavorite}
+                                onSelectMovement={onSelectMovement}
                               />
                             ))
                           )}
@@ -232,6 +236,7 @@ function StrengthMovementsScreen({
                                   exerciseLookup={exerciseLookup}
                                   favoriteMovements={favoriteMovements}
                                   onToggleFavorite={handleToggleFavorite}
+                                  onSelectMovement={onSelectMovement}
                                 />
                               ))}
                             </MovementsAccordionSection>
@@ -247,6 +252,7 @@ function StrengthMovementsScreen({
                         exerciseLookup={exerciseLookup}
                         favoriteMovements={favoriteMovements}
                         onToggleFavorite={handleToggleFavorite}
+                        onSelectMovement={onSelectMovement}
                       />
                     ))
                   )}

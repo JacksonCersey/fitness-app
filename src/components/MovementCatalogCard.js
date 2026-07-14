@@ -11,9 +11,10 @@ import { getHighlightChipForMovement } from '../utils/splitDayHighlightIcons';
  *   exerciseLookup: Record<string, { bodyweightOnly?: boolean; primaryMuscles?: string[] }>,
  *   favoriteMovements: Set<string>,
  *   onToggleFavorite: (name: string) => void,
+ *   onSelectMovement?: ((name: string) => void) | null,
  * }} props
  */
-function MovementCatalogCard({ row, exerciseLookup, favoriteMovements, onToggleFavorite }) {
+function MovementCatalogCard({ row, exerciseLookup, favoriteMovements, onToggleFavorite, onSelectMovement = null }) {
   const styles = useStyles();
   const favorited = isFavoriteMovement(favoriteMovements, row.movement);
   const maxDisplay = row.summary ? getMovementMaxDisplay(row.summary, exerciseLookup) : null;
@@ -21,14 +22,20 @@ function MovementCatalogCard({ row, exerciseLookup, favoriteMovements, onToggleF
     () => getHighlightChipForMovement(row.movement, exerciseLookup, row.primaryMuscle),
     [row.movement, row.primaryMuscle, exerciseLookup],
   );
+  const canSelect = typeof onSelectMovement === 'function';
 
   return (
-    <View
+    <TouchableOpacity
       style={[
         styles.profileCard,
         styles.strengthMovementCard,
         !row.isLogged && styles.strengthMovementCardUnlogged,
-      ]}>
+      ]}
+      activeOpacity={canSelect ? 0.88 : 1}
+      disabled={!canSelect}
+      onPress={canSelect ? () => onSelectMovement(row.movement) : undefined}
+      accessibilityRole={canSelect ? 'button' : undefined}
+      accessibilityLabel={canSelect ? `Choose ${row.movement}` : undefined}>
       <View style={styles.strengthMovementCardTopRow}>
         {muscleChip ? (
           <View style={styles.strengthMovementMuscleChipRow}>
@@ -59,16 +66,22 @@ function MovementCatalogCard({ row, exerciseLookup, favoriteMovements, onToggleF
             numberOfLines={2}>
             {row.movement}
           </Text>
-          <TouchableOpacity
-            style={styles.strengthMovementFavoriteButton}
-            onPress={() => onToggleFavorite(row.movement)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel={favorited ? `Remove ${row.movement} from favorites` : `Favorite ${row.movement}`}>
-            <Text style={[styles.strengthMovementFavoriteIcon, favorited && styles.strengthMovementFavoriteIconOn]}>
-              {favorited ? '★' : '☆'}
-            </Text>
-          </TouchableOpacity>
+          {canSelect ? (
+            <View style={styles.strengthMovementSelectPill}>
+              <Text style={styles.strengthMovementSelectPillText}>Add</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.strengthMovementFavoriteButton}
+              onPress={() => onToggleFavorite(row.movement)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={favorited ? `Remove ${row.movement} from favorites` : `Favorite ${row.movement}`}>
+              <Text style={[styles.strengthMovementFavoriteIcon, favorited && styles.strengthMovementFavoriteIconOn]}>
+                {favorited ? '★' : '☆'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -98,7 +111,7 @@ function MovementCatalogCard({ row, exerciseLookup, favoriteMovements, onToggleF
           Finish a workout with this movement to see your max and recent sets here.
         </Text>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }
 

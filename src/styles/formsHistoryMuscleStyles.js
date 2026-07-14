@@ -2071,6 +2071,18 @@ export function createFormsHistoryMuscleStyles(theme) {
   strengthMovementFavoriteIconOn: {
     color: t.streakGold,
   },
+  strengthMovementSelectPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: t.primaryButtonBg,
+  },
+  strengthMovementSelectPillText: {
+    color: t.primaryButtonText,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   strengthMovementNotLoggedHint: {
     marginBottom: 0,
   },
@@ -2330,10 +2342,28 @@ export function createFormsHistoryMuscleStyles(theme) {
     marginBottom: 12,
   },
   summaryScreenHeader: {
-    paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 14,
+    paddingBottom: 4,
     gap: 14,
+  },
+  summaryScroll: {
+    flex: 1,
+    backgroundColor: t.screenBg,
+  },
+  summaryScrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    gap: 18,
+    backgroundColor: t.screenBg,
+  },
+  summaryFooter: {
+    flexShrink: 0,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    backgroundColor: t.screenBg,
+    borderTopWidth: 1,
+    borderTopColor: t.borderSubtle,
   },
   summaryStatsBar: {
     flexDirection: 'row',

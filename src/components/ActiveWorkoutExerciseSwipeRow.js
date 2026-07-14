@@ -8,6 +8,7 @@ function ActiveWorkoutExerciseSwipeRow({
   workoutSlotId,
   movementLabel,
   setCount,
+  subtitle = null,
   iconSource,
   onOpen,
   onRequestDelete,
@@ -96,7 +97,11 @@ function ActiveWorkoutExerciseSwipeRow({
               {movementLabel}
             </Text>
             <Text style={styles.activeWorkoutExerciseSub}>
-              {setCount === 0 ? 'No sets yet' : `${setCount} set${setCount === 1 ? '' : 's'}`}
+              {subtitle != null
+                ? subtitle
+                : setCount === 0
+                  ? 'No sets yet'
+                  : `${setCount} set${setCount === 1 ? '' : 's'}`}
             </Text>
           </View>
         </TouchableOpacity>

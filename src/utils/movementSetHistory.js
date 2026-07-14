@@ -260,12 +260,6 @@ export function getMovementMaxDisplay(row, exerciseLookup) {
 }
 
 /**
- * @param {MovementSetRecord} setRecord
- * @param {string} movementName
- * @param {Record<string, { bodyweightOnly?: boolean }>} exerciseLookup
- * @returns {string}
- */
-/**
  * All past sets for one exercise from saved workouts, newest first.
  * @param {string} exerciseName
  * @param {unknown[]} workoutHistory
@@ -333,4 +327,51 @@ export function formatRecentSetLine(setRecord, movementName, exerciseLookup) {
   }
 
   return dateLabel ? `${loadPart} · ${dateLabel}` : loadPart;
+}
+
+/**
+ * Average weight (lb) for each recent workout that includes a completed set of this movement.
+ * Returned oldest → newest so sparklines read left-to-right over time.
+ * @param {string} movementName
+ * @param {unknown[]} workoutHistory
+ * @param {number} [limit]
+ * @returns {number[]}
+ */
+export function getRecentWorkoutAverageWeightsForMovement(movementName, workoutHistory, limit = 8) {
+  const key = String(movementName || '').trim().toLowerCase();
+  if (!key || !Array.isArray(workoutHistory) || workoutHistory.length === 0) return [];
+
+  const workoutsNewestFirst = [...workoutHistory]
+    .filter((w) => w?.completedAt && w.setsByMovement && typeof w.setsByMovement === 'object')
+    .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
+
+  /** @type {number[]} */
+  const averagesNewestFirst = [];
+
+  for (let w = 0; w < workoutsNewestFirst.length; w += 1) {
+    if (averagesNewestFirst.length >= limit) break;
+    const workout = workoutsNewestFirst[w];
+    const map = workout.setsByMovement;
+    const movementNames = Object.keys(map);
+
+    /** @type {number[]} */
+    const weights = [];
+    for (let m = 0; m < movementNames.length; m += 1) {
+      const movement = movementNames[m];
+      if (movement.trim().toLowerCase() !== key) continue;
+      const sets = map[movement];
+      if (!Array.isArray(sets)) continue;
+      for (let s = 0; s < sets.length; s += 1) {
+        const reps = Number(sets[s]?.reps) || 0;
+        if (reps <= 0) continue;
+        weights.push(Number(sets[s]?.weight) || 0);
+      }
+    }
+
+    if (weights.length === 0) continue;
+    const sum = weights.reduce((acc, value) => acc + value, 0);
+    averagesNewestFirst.push(Math.round((sum / weights.length) * 10) / 10);
+  }
+
+  return averagesNewestFirst.reverse();
 }

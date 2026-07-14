@@ -96,28 +96,26 @@ function ProfileScreen({
   return (
     <SafeAreaView style={styles.menuScreen}>
       <Animated.View style={[styles.screenFadeContainer, { opacity: screenTransitionOpacity }]}>
+        <View style={styles.profileStickyHeader}>
+          <TouchableOpacity
+            style={styles.profileStickyCloseButton}
+            onPress={onBack}
+            accessibilityRole="button"
+            accessibilityLabel="Go back">
+            <Text style={[styles.workoutCloseButtonText, { color: theme.navBack }]}>✕</Text>
+          </TouchableOpacity>
+          <Text style={styles.menuSubscreenNavTitle}>Profile</Text>
+        </View>
+
         <ScrollView
           style={styles.profileScrollOuter}
           contentContainerStyle={styles.profileScrollContent}
-          keyboardShouldPersistTaps="handled">
-          <View style={styles.menuGradientTopGlow} pointerEvents="none" />
-          <View style={styles.menuGradientBottomGlow} pointerEvents="none" />
-
-          <View style={styles.profileHeaderRow}>
-            <TouchableOpacity
-              style={styles.profileCloseInlineButton}
-              onPress={onBack}
-              accessibilityRole="button"
-              accessibilityLabel="Go back">
-              <Text style={[styles.workoutCloseButtonText, { color: theme.navBack }]}>✕</Text>
-            </TouchableOpacity>
-            <Text style={styles.menuSubscreenNavTitle}>Profile</Text>
-          </View>
-
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
           <View style={styles.profileHeroRow}>
             <View style={styles.profileHeroIconWell}>
               <Image
-                source={require('../../assets/images/profileicon.png')}
+                source={require('../../assets/images/icons/profileicon.png')}
                 style={styles.profileHeroIcon}
                 resizeMode="contain"
               />
@@ -239,7 +237,9 @@ function ProfileScreen({
             hint="Shown on History as your target body weight."
           />
 
-          <TouchableOpacity style={styles.profileSaveButton} onPress={onSaveProfile}>
+          <TouchableOpacity
+            style={[styles.profileSaveButton, { backgroundColor: theme.navAccent }]}
+            onPress={onSaveProfile}>
             <Text style={styles.profileSaveButtonText}>Save profile</Text>
           </TouchableOpacity>
         </ScrollView>

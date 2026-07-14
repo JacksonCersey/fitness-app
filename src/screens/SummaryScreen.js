@@ -3,15 +3,12 @@ import { useGameTheme, useStyles, useWorkoutTheme } from '../app/context/ThemeSt
 import {
   Animated,
   Image,
-  SafeAreaView,
-  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import HomeBodyPanelGlow from '../components/home/HomeBodyPanelGlow';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import SummaryWeekProgressPager from '../components/summary/SummaryWeekProgressPager';
 import { getStreakRankProgress } from '../data/streakRanks';
 import { computeStrengthScoreSummary } from '../data/strengthScore';
@@ -271,33 +268,26 @@ function SummaryScreen({
   });
 
   return (
-    <SafeAreaView style={styles.menuHomeShell}>
+    <SafeAreaView style={styles.menuHomeShell} edges={['top', 'left', 'right']}>
       <Animated.View style={[styles.screenFadeContainer, { opacity: screenTransitionOpacity }]}>
-        <View style={styles.summaryScreenHeader}>
-          <Text style={styles.homeSessionTitle}>Summary</Text>
-          <View style={styles.summaryStatsBar}>
-            <View style={styles.summaryStatCell}>
-              <Text style={styles.summaryStatValue}>{formatTime(elapsedSeconds)}</Text>
-              <Text style={styles.summaryStatLabel}>Time</Text>
-            </View>
-            <View style={styles.summaryStatCell}>
-              <Text style={styles.summaryStatValue}>{totalWeightLiftedLabel}</Text>
-              <Text style={styles.summaryStatLabel}>Weight lifted</Text>
+        <Animated.ScrollView
+          style={styles.summaryScroll}
+          contentContainerStyle={styles.summaryScrollContent}
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.summaryScreenHeader}>
+            <Text style={styles.homeSessionTitle}>Summary</Text>
+            <View style={styles.summaryStatsBar}>
+              <View style={styles.summaryStatCell}>
+                <Text style={styles.summaryStatValue}>{formatTime(elapsedSeconds)}</Text>
+                <Text style={styles.summaryStatLabel}>Time</Text>
+              </View>
+              <View style={styles.summaryStatCell}>
+                <Text style={styles.summaryStatValue}>{totalWeightLiftedLabel}</Text>
+                <Text style={styles.summaryStatLabel}>Weight lifted</Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        <View style={[styles.homeBodyPanelWrap, { flex: 1 }]}>
-          <HomeBodyPanelGlow />
-          <ScrollView
-            style={styles.homeScreenScroll}
-            contentContainerStyle={[
-              styles.homeBodyPanel,
-              {
-                paddingBottom: insets.bottom + 120,
-              },
-            ]}
-            showsVerticalScrollIndicator={false}>
           <SummaryWeekProgressPager
             styles={styles}
             theme={theme}
@@ -524,21 +514,13 @@ function SummaryScreen({
             )}
           </View>
 
-          </ScrollView>
-        </View>
+        </Animated.ScrollView>
 
         <View
           style={[
-            styles.logSheetSaveFooter,
+            styles.summaryFooter,
             {
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              paddingBottom: insets.bottom + 10,
-              backgroundColor: theme.homeBodyPanelBg,
-              borderTopWidth: 1,
-              borderTopColor: theme.borderSubtle,
+              paddingBottom: Math.max(insets.bottom, 10),
             },
           ]}>
           <TouchableOpacity style={styles.summaryReturnButton} onPress={onReturnToMenu}>

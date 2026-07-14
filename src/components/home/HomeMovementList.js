@@ -1,71 +1,47 @@
 import React, { memo, useMemo } from 'react';
-import { Image, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useStyles } from '../../app/context/ThemeStylesContext';
 import { getSplitEntryForDate, prioritizeMovementsForSplitDay } from '../../utils/homeDashboard';
-import { formatRecentSetLine, getMovementMaxDisplay } from '../../utils/movementSetHistory';
-import { getHighlightChipForMovement } from '../../utils/splitDayHighlightIcons';
-
-function HomeMovementRow({ row, exerciseLookup }) {
-  const styles = useStyles();
-  const maxDisplay = row.summary ? getMovementMaxDisplay(row.summary, exerciseLookup) : null;
-  const muscleChip = useMemo(
-    () => getHighlightChipForMovement(row.movement, exerciseLookup, row.primaryMuscle),
-    [row.movement, row.primaryMuscle, exerciseLookup],
-  );
-  const recentLines = row.summary?.recentSets?.slice(0, 3) ?? [];
-
-  return (
-    <View style={styles.homeMovementCard}>
-      <View style={styles.homeMovementCardTop}>
-        {muscleChip ? (
-          <View style={styles.homeMovementChipWell}>
-            <Image source={muscleChip.source} style={styles.homeMovementChipIcon} />
-          </View>
-        ) : (
-          <View style={styles.homeMovementChipWell} />
-        )}
-        <Text style={styles.homeMovementTitle} numberOfLines={2}>
-          {row.movement}
-        </Text>
-      </View>
-      {maxDisplay ? (
-        <View style={styles.homeMovementMaxRow}>
-          <Text style={styles.homeMovementMaxLabel}>{maxDisplay.label}</Text>
-          <Text style={styles.homeMovementMaxValue}>
-            {maxDisplay.primary}
-            {maxDisplay.suffix ? ` ${maxDisplay.suffix}` : ''}
-          </Text>
-        </View>
-      ) : null}
-      {recentLines.map((setItem, idx) => (
-        <Text key={`${setItem.sortKey}-${idx}`} style={styles.homeMovementRecentLine}>
-          {formatRecentSetLine(setItem)}
-        </Text>
-      ))}
-    </View>
-  );
-}
+import { getRecentWorkoutAverageWeightsForMovement } from '../../utils/movementSetHistory';
+import MovementHistoryCard from '../movements/MovementHistoryCard';
 
 /**
  * @param {{
  *   selectedDate: Date;
  *   weeklySplitPlan: { days: unknown[] } | null | undefined;
+ *   weekPlanDayOverrides?: { weekKey?: string; daySourceByPlanIndex?: number[] } | null;
  *   workoutHistory: unknown[];
  *   exerciseLookup: Record<string, unknown>;
  * }} props
  */
-function HomeMovementList({ selectedDate, weeklySplitPlan, workoutHistory, exerciseLookup }) {
+function HomeMovementList({
+  selectedDate,
+  weeklySplitPlan,
+  weekPlanDayOverrides,
+  workoutHistory,
+  exerciseLookup,
+}) {
   const styles = useStyles();
 
   const dayEntry = useMemo(
-    () => getSplitEntryForDate(weeklySplitPlan, selectedDate),
-    [weeklySplitPlan, selectedDate],
+    () => getSplitEntryForDate(weeklySplitPlan, selectedDate, weekPlanDayOverrides),
+    [weekPlanDayOverrides, weeklySplitPlan, selectedDate],
   );
 
   const rows = useMemo(
     () => prioritizeMovementsForSplitDay(workoutHistory, dayEntry, exerciseLookup, 10),
     [workoutHistory, dayEntry, exerciseLookup],
   );
+
+  const weightAveragesByMovement = useMemo(() => {
+    /** @type {Record<string, number[]>} */
+    const next = {};
+    for (let i = 0; i < rows.length; i += 1) {
+      const movement = rows[i].movement;
+      next[movement] = getRecentWorkoutAverageWeightsForMovement(movement, workoutHistory, 8);
+    }
+    return next;
+  }, [rows, workoutHistory]);
 
   if (rows.length === 0) {
     return (
@@ -84,7 +60,15 @@ function HomeMovementList({ selectedDate, weeklySplitPlan, workoutHistory, exerc
     <View style={styles.homeMovementSection}>
       <Text style={styles.homeMovementSectionTitle}>Movements</Text>
       {rows.map((row) => (
-        <HomeMovementRow key={row.movement} row={row} exerciseLookup={exerciseLookup} />
+        <MovementHistoryCard
+          key={row.movement}
+          movement={row.movement}
+          primaryMuscle={row.primaryMuscle}
+          summary={row.summary}
+          exerciseLookup={exerciseLookup}
+          weightAverages={weightAveragesByMovement[row.movement] ?? []}
+          emptyHistoryText="Finish a workout with this movement to see your max and weight trend here."
+        />
       ))}
     </View>
   );
