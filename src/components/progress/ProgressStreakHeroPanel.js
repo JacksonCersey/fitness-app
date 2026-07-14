@@ -4,8 +4,10 @@ import { useStyles } from '../../app/context/ThemeStylesContext';
 import { getStreakRankProgress } from '../../data/streakRanks';
 import { computeBestTrainingWeekStreak, hasLoggedWorkoutInCurrentWeek } from '../../utils/consecutiveWeekStreak';
 
-const STREAK_LOGO_ACTIVE = require('../../../assets/images/streaklogo.png');
+const STREAK_LOGO_ACTIVE = require('../../../assets/images/icons/streaklogo.png');
 const STREAK_LOGO_INACTIVE = require('../../../assets/images/streaklogo-inactive.png');
+/** Fixed orange for the week-streak progress bar (not rank accent). */
+const STREAK_BAR_ORANGE = '#F97316';
 
 function showWeekStreakExplainer() {
   Alert.alert(
@@ -39,7 +41,6 @@ function ProgressStreakHeroPanel({ consecutiveTrainingWeekStreak, workoutHistory
 
   const currentWeeks = Math.max(0, consecutiveTrainingWeekStreak);
   const isStreakActive = hasLoggedWorkoutInCurrentWeek(workoutHistory);
-  const rankAccent = rank.displayRank.accent;
   const fillPct = Math.round(rank.progress * 100);
 
   return (
@@ -66,11 +67,11 @@ function ProgressStreakHeroPanel({ consecutiveTrainingWeekStreak, workoutHistory
           <Text style={styles.progressStreakHeroRankName}>{rank.displayRank.label}</Text>
           {!rank.isMaxRank && rank.nextRank ? (
             <View style={styles.progressStreakHeroProgressMeta}>
-              <View style={[styles.progressStreakHeroProgressTrack, { borderColor: `${rankAccent}44` }]}>
+              <View style={[styles.progressStreakHeroProgressTrack, { borderColor: `${STREAK_BAR_ORANGE}44` }]}>
                 <View
                   style={[
                     styles.progressStreakHeroProgressFill,
-                    { width: `${fillPct}%`, backgroundColor: rankAccent },
+                    { width: `${fillPct}%`, backgroundColor: STREAK_BAR_ORANGE },
                   ]}
                 />
               </View>
@@ -82,7 +83,6 @@ function ProgressStreakHeroPanel({ consecutiveTrainingWeekStreak, workoutHistory
             <Text style={styles.progressStreakHeroProgressHint}>Max rank</Text>
           )}
         </View>
-        <Image source={rank.displayRank.image} style={styles.progressStreakHeroBadge} resizeMode="contain" />
       </View>
 
       <Text style={styles.progressStreakHeroWeeksValue}>
