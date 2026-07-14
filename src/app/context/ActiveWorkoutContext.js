@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import LogSheetTextInput from '../../components/LogSheetTextInput';
-import { useStyles, useWorkoutTheme } from './ThemeStylesContext';
+import { useStyles, useGameTheme, useWorkoutTheme } from './ThemeStylesContext';
 import { useAppStorage } from './AppStorageContext';
 import { useAppNavigation } from './AppNavigationContext';
 import { saveHistoryToStorage } from '../storage/persistedStorage';
@@ -26,11 +26,23 @@ import {
   formatWeightForNotepadInput,
   getMostRecentSetForMovementName,
 } from '../../utils/movementSetHistory';
-import { createWorkoutSlotId, mergeWorkoutSlotsToExerciseMap } from '../../utils/workoutSlots';
+import {
+  buildWorkoutSlotsFromPlan,
+  createWorkoutSlotId,
+  mergeWorkoutSlotsToExerciseMap,
+} from '../../utils/workoutSlots';
 import {
   countSessionLoggedSets,
   evaluateSetCelebration,
 } from '../../utils/workoutSetCelebration';
+import { getMondayBasedDayIndex } from '../../data/weeklySplitPlanner';
+import { getWorkoutPlanForDay } from '../../data/workoutPlans';
+import {
+  getMondayWeekKey,
+  isSameMondayWeek,
+  resolveWeekPlanSourceIndex,
+} from '../../data/weekPlanDayOverrides';
+import { isSameLocalDay, startOfLocalDay } from '../../utils/homeDashboard';
 
 const ActiveWorkoutContext = createContext(null);
 
@@ -44,6 +56,7 @@ export function useActiveWorkout() {
 
 export function ActiveWorkoutProvider({ children, workoutStartRef }) {
   const styles = useStyles();
+  const theme = useGameTheme();
   const wt = useWorkoutTheme();
   const {
     workoutHistory,
@@ -51,11 +64,18 @@ export function ActiveWorkoutProvider({ children, workoutStartRef }) {
     exerciseLookup,
     weeklyPplCounts,
     weeklySubcategorySetCounts,
+    activeDevUserId,
+    weeklySplitPlan,
+    savedWorkoutPlans,
+    dayWorkoutAssignments,
+    weekPlanDayOverrides,
+    handleApplyWeekOnlyDaySwap,
   } = useAppStorage();
   const { currentScreen, setCurrentScreen } = useAppNavigation();
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const workoutTimerOriginMsRef = useRef(null);
+  const pendingHomeDaySwapRef = useRef(null);
   const [selectedMovement, setSelectedMovement] = useState('');
   const [customMovementName, setCustomMovementName] = useState('');
   const [notepadWeightInput, setNotepadWeightInput] = useState('');
@@ -341,7 +361,8 @@ export function ActiveWorkoutProvider({ children, workoutStartRef }) {
     try {
       const updatedHistory = [completedWorkout, ...workoutHistory];
       setWorkoutHistory(updatedHistory);
-      await saveHistoryToStorage(updatedHistory);
+      // Must pass activeDevUserId so fixture data never overwrites real storage keys.
+      await saveHistoryToStorage(updatedHistory, activeDevUserId);
     } catch (error) {
       console.warn('Failed to save workout history', error);
       Alert.alert('Save Failed', 'Workout ended, but history could not be saved this time.');
@@ -349,25 +370,71 @@ export function ActiveWorkoutProvider({ children, workoutStartRef }) {
 
     setSetsByMovement(setsForHistory);
     setWorkoutMovementOrder([]);
+
+    const pendingSwap = pendingHomeDaySwapRef.current;
+    pendingHomeDaySwapRef.current = null;
+    if (
+      pendingSwap &&
+      typeof pendingSwap.weekKey === 'string' &&
+      Number.isInteger(pendingSwap.indexA) &&
+      Number.isInteger(pendingSwap.indexB)
+    ) {
+      handleApplyWeekOnlyDaySwap(pendingSwap.weekKey, pendingSwap.indexA, pendingSwap.indexB);
+    }
+
     setCurrentScreen('summary');
   }
 
-  const handleStartNewWorkout = useCallback(() => {
-    setElapsedSeconds(0);
-    setSelectedMovement('');
-    setCustomMovementName('');
-    setUseCustomMovement(false);
-    setSetsByMovement({});
-    setWorkoutMovementOrder([]);
-    setWorkoutTimerPaused(false);
-    setAddMovementSheetVisible(false);
-    setLogSetSheetExercise(null);
-    setWorkoutCelebration(null);
-    workoutCelebrationShownKeysRef.current.clear();
-    workoutTimerOriginMsRef.current = null;
-    resetNotepadInput();
-    setCurrentScreen('workout');
-  }, [setCurrentScreen]);
+  const getWorkoutPlanForDate = useCallback(
+    (forDate = new Date()) => {
+      const planIndex = getMondayBasedDayIndex(forDate);
+      const sourceIndex = resolveWeekPlanSourceIndex(weekPlanDayOverrides, forDate, planIndex);
+      const dayEntry = weeklySplitPlan?.days?.[sourceIndex] ?? null;
+      return getWorkoutPlanForDay(dayWorkoutAssignments, savedWorkoutPlans, sourceIndex, dayEntry);
+    },
+    [weeklySplitPlan, dayWorkoutAssignments, savedWorkoutPlans, weekPlanDayOverrides],
+  );
+
+  /** FAB / Summary / home level popup: open active workout seeded with a day's plan (today by default). */
+  const handleStartNewWorkout = useCallback(
+    (forDate) => {
+      const date = forDate instanceof Date ? forDate : new Date();
+      const today = startOfLocalDay(new Date());
+      const selected = startOfLocalDay(date);
+      const sameWeek = isSameMondayWeek(selected, today);
+      const todayIndex = getMondayBasedDayIndex(today);
+      const selectedIndex = getMondayBasedDayIndex(selected);
+
+      if (!isSameLocalDay(selected, today) && sameWeek && todayIndex !== selectedIndex) {
+        pendingHomeDaySwapRef.current = {
+          weekKey: getMondayWeekKey(today),
+          indexA: todayIndex,
+          indexB: selectedIndex,
+        };
+      } else {
+        pendingHomeDaySwapRef.current = null;
+      }
+
+      const plan = getWorkoutPlanForDate(date);
+      const initialMovementOrder = buildWorkoutSlotsFromPlan(plan);
+
+      setElapsedSeconds(0);
+      setSelectedMovement('');
+      setCustomMovementName('');
+      setUseCustomMovement(false);
+      setSetsByMovement({});
+      setWorkoutMovementOrder(initialMovementOrder);
+      setWorkoutTimerPaused(false);
+      setAddMovementSheetVisible(false);
+      setLogSetSheetExercise(null);
+      setWorkoutCelebration(null);
+      workoutCelebrationShownKeysRef.current.clear();
+      workoutTimerOriginMsRef.current = null;
+      resetNotepadInput();
+      setCurrentScreen('workout');
+    },
+    [getWorkoutPlanForDate, setCurrentScreen],
+  );
 
   function resetCurrentWorkoutFields() {
     setElapsedSeconds(0);
@@ -391,6 +458,7 @@ export function ActiveWorkoutProvider({ children, workoutStartRef }) {
       (movementSets) => Array.isArray(movementSets) && movementSets.length > 0,
     );
     if (!hasAnyLoggedSets) {
+      pendingHomeDaySwapRef.current = null;
       resetCurrentWorkoutFields();
       setCurrentScreen('menu');
       return;
@@ -401,6 +469,7 @@ export function ActiveWorkoutProvider({ children, workoutStartRef }) {
         text: 'Cancel Workout',
         style: 'destructive',
         onPress: () => {
+          pendingHomeDaySwapRef.current = null;
           resetCurrentWorkoutFields();
           setCurrentScreen('menu');
         },
@@ -574,7 +643,7 @@ export function ActiveWorkoutProvider({ children, workoutStartRef }) {
         styles.logSheetSetListValueBox,
         {
           backgroundColor: wt.splitModalInnerBg,
-          borderColor: isEditing ? wt.primaryButtonBg : wt.inputBorder,
+          borderColor: isEditing ? theme.navAccent : 'rgba(255, 43, 58, 0.25)',
         },
       ];
       const beginEditReps = () => startEditingStoredSet(storageKey, index, setItem, 'reps');

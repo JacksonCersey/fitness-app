@@ -153,6 +153,26 @@ export function normalizeWeeklySplitPlan(raw) {
   return { days: base.slice(0, 7) };
 }
 
+/**
+ * Swap two days in the repeating weekly split (type + mixed muscles).
+ * @param {unknown} plan
+ * @param {number} dayIndexA
+ * @param {number} dayIndexB
+ */
+export function swapWeeklySplitDays(plan, dayIndexA, dayIndexB) {
+  const normalized = normalizeWeeklySplitPlan(plan);
+  if (dayIndexA < 0 || dayIndexA > 6 || dayIndexB < 0 || dayIndexB > 6) return normalized;
+  if (dayIndexA === dayIndexB) return normalized;
+  const days = normalized.days.map((day) => ({
+    type: day.type,
+    mixedMuscles: [...(day.mixedMuscles ?? [])],
+  }));
+  const temp = days[dayIndexA];
+  days[dayIndexA] = days[dayIndexB];
+  days[dayIndexB] = temp;
+  return { days };
+}
+
 export function getDefaultWeeklySplitPlan() {
   return normalizeWeeklySplitPlan(null);
 }

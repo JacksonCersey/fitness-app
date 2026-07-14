@@ -214,6 +214,10 @@ function LevelDayCircle({ date, dayEntry, isSelected, useAccent, onPress }) {
  *   weeklySplitPlan: { days: unknown[] } | null | undefined;
  *   workoutHistory: unknown[];
  *   exerciseLookup: Record<string, unknown>;
+ *   savedWorkoutPlans?: { id: string }[] | null;
+ *   dayWorkoutAssignments?: { assignments: (string | null)[] } | null;
+ *   weekPlanDayOverrides?: { weekKey?: string; daySourceByPlanIndex?: number[] } | null;
+ *   onStartWorkout?: (date: Date) => void;
  * }} props
  */
 const HomeWorkoutLevelSelect = forwardRef(function HomeWorkoutLevelSelect(
@@ -224,6 +228,10 @@ const HomeWorkoutLevelSelect = forwardRef(function HomeWorkoutLevelSelect(
     weeklySplitPlan,
     workoutHistory,
     exerciseLookup,
+    savedWorkoutPlans,
+    dayWorkoutAssignments,
+    weekPlanDayOverrides,
+    onStartWorkout,
   },
   ref,
 ) {
@@ -299,7 +307,7 @@ const HomeWorkoutLevelSelect = forwardRef(function HomeWorkoutLevelSelect(
 
   const openModalForDate = useCallback(
     (date) => {
-      const entry = getSplitEntryForDate(weeklySplitPlan, date);
+      const entry = getSplitEntryForDate(weeklySplitPlan, date, weekPlanDayOverrides);
       setModalDate(date);
       setModalEntry(entry);
 
@@ -317,7 +325,7 @@ const HomeWorkoutLevelSelect = forwardRef(function HomeWorkoutLevelSelect(
 
       showModal(null);
     },
-    [weeklySplitPlan],
+    [weekPlanDayOverrides, weeklySplitPlan],
   );
 
   const closeModal = useCallback(() => {
@@ -343,7 +351,7 @@ const HomeWorkoutLevelSelect = forwardRef(function HomeWorkoutLevelSelect(
 
   const renderDay = useCallback(
     ({ item: date }) => {
-      const entry = getSplitEntryForDate(weeklySplitPlan, date);
+      const entry = getSplitEntryForDate(weeklySplitPlan, date, weekPlanDayOverrides);
       const isSelected = isSameLocalDay(date, selectedDate);
       const useAccent = shouldLevelCircleUseAccentColor(date, workoutHistory);
 
@@ -357,7 +365,7 @@ const HomeWorkoutLevelSelect = forwardRef(function HomeWorkoutLevelSelect(
         />
       );
     },
-    [handleCirclePress, selectedDate, weeklySplitPlan, workoutHistory],
+    [handleCirclePress, selectedDate, weekPlanDayOverrides, weeklySplitPlan, workoutHistory],
   );
 
   return (
@@ -368,8 +376,12 @@ const HomeWorkoutLevelSelect = forwardRef(function HomeWorkoutLevelSelect(
         dayEntry={modalEntry}
         workoutHistory={workoutHistory}
         exerciseLookup={exerciseLookup}
+        savedWorkoutPlans={savedWorkoutPlans}
+        dayWorkoutAssignments={dayWorkoutAssignments}
+        weekPlanDayOverrides={weekPlanDayOverrides}
         anchor={bubbleAnchor}
         onClose={closeModal}
+        onStartWorkout={onStartWorkout}
       />
       <View ref={iconTrackRef} style={[styles.homeLevelSelectIconTrack, { width: listWidth }]}>
         <FlatList

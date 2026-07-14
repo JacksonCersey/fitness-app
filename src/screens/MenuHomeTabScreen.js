@@ -13,6 +13,11 @@ import HomeStatsBar from '../components/home/HomeStatsBar';
 import HomeStreakRankCarousel from '../components/home/HomeStreakRankCarousel';
 import HomeMovementList from '../components/home/HomeMovementList';
 import HomeBodyPanelGlow from '../components/home/HomeBodyPanelGlow';
+import {
+  createBodyPanelGlowScrollStyle,
+} from '../utils/homeBodyPanelGlowScroll';
+import { useActiveWorkout } from '../app/context/ActiveWorkoutContext';
+import { useAppStorage } from '../app/context/AppStorageContext';
 
 function MenuHomeTabScreen({
   mainTabBottomReserve,
@@ -26,6 +31,8 @@ function MenuHomeTabScreen({
   onOpenProfile,
 }) {
   const styles = useStyles();
+  const { handleStartNewWorkout } = useActiveWorkout();
+  const { savedWorkoutPlans, dayWorkoutAssignments, weekPlanDayOverrides } = useAppStorage();
   const levelSelectRef = useRef(null);
   const scrollY = useRef(new Animated.Value(0)).current;
   const [selectedDate, setSelectedDate] = useState(() => startOfLocalDay(new Date()));
@@ -52,18 +59,32 @@ function MenuHomeTabScreen({
 
   const stickyLevelStyle = useMemo(
     () => ({
-      // Cancel ScrollView motion so levels/glow stay put while the sheet covers them.
-      transform: [{ translateY: scrollY }],
+      // Cancel ScrollView motion while scrolling up, but freeze at top overscroll.
+      // This prevents the level layer from shifting into clipped background space.
+      transform: [
+        {
+          translateY: scrollY.interpolate({
+            inputRange: [-120, 0, 1, 2000],
+            outputRange: [0, 0, 1, 2000],
+            extrapolateLeft: 'clamp',
+          }),
+        },
+      ],
     }),
+    [scrollY],
+  );
+
+  const stickyGlowStyle = useMemo(
+    () => createBodyPanelGlowScrollStyle(scrollY, { counterScroll: true }),
     [scrollY],
   );
 
   const showBackToToday = !isTodayLocalDay(selectedDate) || isLevelSelectScrolledFromToday;
 
   const sessionTitle = useMemo(() => {
-    const entry = getSplitEntryForDate(weeklySplitPlan, selectedDate);
+    const entry = getSplitEntryForDate(weeklySplitPlan, selectedDate, weekPlanDayOverrides);
     return getSplitDaySessionTitle(entry, workoutHistory, weeklySplitPlan, selectedDate);
-  }, [selectedDate, weeklySplitPlan, workoutHistory]);
+  }, [selectedDate, weekPlanDayOverrides, weeklySplitPlan, workoutHistory]);
 
   return (
     <View style={styles.menuHomeShell}>
@@ -95,11 +116,15 @@ function MenuHomeTabScreen({
               weeklySplitPlan={weeklySplitPlan}
               workoutHistory={workoutHistory}
               exerciseLookup={exerciseLookup}
+              savedWorkoutPlans={savedWorkoutPlans}
+              dayWorkoutAssignments={dayWorkoutAssignments}
+              weekPlanDayOverrides={weekPlanDayOverrides}
+              onStartWorkout={handleStartNewWorkout}
             />
           </Animated.View>
 
           <View style={styles.homeBodyPanelWrap}>
-            <Animated.View style={stickyLevelStyle} pointerEvents="none">
+            <Animated.View style={stickyGlowStyle} pointerEvents="none">
               <HomeBodyPanelGlow />
             </Animated.View>
             <View style={[styles.homeBodyPanel, { paddingBottom: mainTabBottomReserve + 24 }]}>
@@ -120,6 +145,7 @@ function MenuHomeTabScreen({
               <HomeMovementList
                 selectedDate={selectedDate}
                 weeklySplitPlan={weeklySplitPlan}
+                weekPlanDayOverrides={weekPlanDayOverrides}
                 workoutHistory={workoutHistory}
                 exerciseLookup={exerciseLookup}
               />

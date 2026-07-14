@@ -1,17 +1,22 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   DEV_ACTIVE_USER_STORAGE_KEY,
+  DAY_WORKOUT_ASSIGNMENTS_STORAGE_KEY,
   FAVORITE_MOVEMENTS_STORAGE_KEY,
   HISTORY_STORAGE_KEY,
   ONBOARDING_COMPLETED_STORAGE_KEY,
   PROFILE_BODY_STORAGE_KEY,
   PROFILE_NAME_STORAGE_KEY,
+  SAVED_WORKOUT_PLANS_STORAGE_KEY,
   STRENGTH_SCORE_DISPLAYED_KEY,
   WEIGHT_LOGS_STORAGE_KEY,
   WEEKLY_SPLIT_PLAN_STORAGE_KEY,
+  WEEK_PLAN_DAY_OVERRIDES_STORAGE_KEY,
 } from '../../constants/storageKeys';
 import { getDevUserFixture } from '../../data/devFixtures/devUsers';
 import { getDefaultWeeklySplitPlan, normalizeWeeklySplitPlan } from '../../data/weeklySplitPlanner';
+import { normalizeWeekPlanDayOverrides } from '../../data/weekPlanDayOverrides';
+import { normalizeDayWorkoutAssignments, normalizeSavedWorkoutPlans } from '../../data/workoutPlans';
 import { movementFavoriteKey } from '../../utils/movementFavorites';
 import { resolveUserDataStorageKey } from './storageNamespace';
 import { loadHistoryFromStorage, loadWeightLogsFromStorage } from './persistedStorage';
@@ -24,6 +29,9 @@ import { loadHistoryFromStorage, loadWeightLogsFromStorage } from './persistedSt
  *   workoutHistory: unknown[];
  *   weightLogs: unknown[];
  *   weeklySplitPlan: ReturnType<typeof getDefaultWeeklySplitPlan>;
+ *   savedWorkoutPlans: ReturnType<typeof normalizeSavedWorkoutPlans>;
+ *   dayWorkoutAssignments: ReturnType<typeof normalizeDayWorkoutAssignments>;
+ *   weekPlanDayOverrides: ReturnType<typeof normalizeWeekPlanDayOverrides>;
  *   favoriteMovements: string[];
  *   onboardingComplete: boolean;
  *   strengthScoreDisplayed: number | null;
@@ -37,6 +45,9 @@ const USER_DATA_KEYS = [
   PROFILE_BODY_STORAGE_KEY,
   WEIGHT_LOGS_STORAGE_KEY,
   WEEKLY_SPLIT_PLAN_STORAGE_KEY,
+  SAVED_WORKOUT_PLANS_STORAGE_KEY,
+  DAY_WORKOUT_ASSIGNMENTS_STORAGE_KEY,
+  WEEK_PLAN_DAY_OVERRIDES_STORAGE_KEY,
   STRENGTH_SCORE_DISPLAYED_KEY,
   FAVORITE_MOVEMENTS_STORAGE_KEY,
 ];
@@ -97,6 +108,9 @@ export async function loadUserDataSnapshot(devUserId) {
   const onboardingKey = resolveUserDataStorageKey(ONBOARDING_COMPLETED_STORAGE_KEY, devUserId);
   const strengthKey = resolveUserDataStorageKey(STRENGTH_SCORE_DISPLAYED_KEY, devUserId);
   const favoritesKey = resolveUserDataStorageKey(FAVORITE_MOVEMENTS_STORAGE_KEY, devUserId);
+  const plansKey = resolveUserDataStorageKey(SAVED_WORKOUT_PLANS_STORAGE_KEY, devUserId);
+  const assignmentsKey = resolveUserDataStorageKey(DAY_WORKOUT_ASSIGNMENTS_STORAGE_KEY, devUserId);
+  const weekOverridesKey = resolveUserDataStorageKey(WEEK_PLAN_DAY_OVERRIDES_STORAGE_KEY, devUserId);
 
   const [
     workoutHistory,
@@ -107,6 +121,9 @@ export async function loadUserDataSnapshot(devUserId) {
     onboardingRaw,
     strengthRaw,
     favoritesRaw,
+    plansRaw,
+    assignmentsRaw,
+    weekOverridesRaw,
   ] = await Promise.all([
     loadHistoryFromStorage(devUserId),
     loadWeightLogsFromStorage(devUserId),
@@ -116,6 +133,9 @@ export async function loadUserDataSnapshot(devUserId) {
     AsyncStorage.getItem(onboardingKey),
     AsyncStorage.getItem(strengthKey),
     AsyncStorage.getItem(favoritesKey),
+    AsyncStorage.getItem(plansKey),
+    AsyncStorage.getItem(assignmentsKey),
+    AsyncStorage.getItem(weekOverridesKey),
   ]);
 
   let profileHeightIn = null;
@@ -159,6 +179,33 @@ export async function loadUserDataSnapshot(devUserId) {
     if (Number.isFinite(n) && n >= 0) strengthScoreDisplayed = n;
   }
 
+  let savedWorkoutPlans = [];
+  if (plansRaw) {
+    try {
+      savedWorkoutPlans = normalizeSavedWorkoutPlans(JSON.parse(plansRaw));
+    } catch {
+      // ignore malformed workout plans
+    }
+  }
+
+  let dayWorkoutAssignments = normalizeDayWorkoutAssignments();
+  if (assignmentsRaw) {
+    try {
+      dayWorkoutAssignments = normalizeDayWorkoutAssignments(JSON.parse(assignmentsRaw));
+    } catch {
+      // ignore malformed workout assignments
+    }
+  }
+
+  let weekPlanDayOverrides = normalizeWeekPlanDayOverrides();
+  if (weekOverridesRaw) {
+    try {
+      weekPlanDayOverrides = normalizeWeekPlanDayOverrides(JSON.parse(weekOverridesRaw));
+    } catch {
+      // ignore malformed week plan overrides
+    }
+  }
+
   return {
     profileName: profileNameRaw ?? '',
     profileHeightIn,
@@ -166,6 +213,9 @@ export async function loadUserDataSnapshot(devUserId) {
     workoutHistory,
     weightLogs,
     weeklySplitPlan,
+    savedWorkoutPlans,
+    dayWorkoutAssignments,
+    weekPlanDayOverrides,
     favoriteMovements,
     onboardingComplete: onboardingRaw === 'true',
     strengthScoreDisplayed,
@@ -183,6 +233,9 @@ export async function saveUserDataSnapshot(devUserId, snapshot) {
   const onboardingKey = resolveUserDataStorageKey(ONBOARDING_COMPLETED_STORAGE_KEY, devUserId);
   const strengthKey = resolveUserDataStorageKey(STRENGTH_SCORE_DISPLAYED_KEY, devUserId);
   const favoritesKey = resolveUserDataStorageKey(FAVORITE_MOVEMENTS_STORAGE_KEY, devUserId);
+  const plansKey = resolveUserDataStorageKey(SAVED_WORKOUT_PLANS_STORAGE_KEY, devUserId);
+  const assignmentsKey = resolveUserDataStorageKey(DAY_WORKOUT_ASSIGNMENTS_STORAGE_KEY, devUserId);
+  const weekOverridesKey = resolveUserDataStorageKey(WEEK_PLAN_DAY_OVERRIDES_STORAGE_KEY, devUserId);
 
   const body = {
     heightIn: snapshot.profileHeightIn,
@@ -194,6 +247,12 @@ export async function saveUserDataSnapshot(devUserId, snapshot) {
     AsyncStorage.setItem(profileNameKey, snapshot.profileName ?? ''),
     AsyncStorage.setItem(profileBodyKey, JSON.stringify(body)),
     AsyncStorage.setItem(splitKey, JSON.stringify(snapshot.weeklySplitPlan)),
+    AsyncStorage.setItem(plansKey, JSON.stringify(normalizeSavedWorkoutPlans(snapshot.savedWorkoutPlans))),
+    AsyncStorage.setItem(assignmentsKey, JSON.stringify(normalizeDayWorkoutAssignments(snapshot.dayWorkoutAssignments))),
+    AsyncStorage.setItem(
+      weekOverridesKey,
+      JSON.stringify(normalizeWeekPlanDayOverrides(snapshot.weekPlanDayOverrides)),
+    ),
     AsyncStorage.setItem(
       onboardingKey,
       snapshot.onboardingComplete ? 'true' : 'false',

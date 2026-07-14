@@ -8,6 +8,23 @@ export function createWorkoutSlotId() {
 }
 
 /**
+ * Turn a planned workout's exercise list into active-workout slots.
+ * @param {{ exercises?: { movement?: string }[] } | null | undefined} plan
+ * @returns {{ id: string; name: string }[]}
+ */
+export function buildWorkoutSlotsFromPlan(plan) {
+  const exercises = Array.isArray(plan?.exercises) ? plan.exercises : [];
+  /** @type {{ id: string; name: string }[]} */
+  const slots = [];
+  for (let i = 0; i < exercises.length; i += 1) {
+    const name = String(exercises[i]?.movement || '').trim();
+    if (!name) continue;
+    slots.push({ id: createWorkoutSlotId(), name });
+  }
+  return slots;
+}
+
+/**
  * @param {{ id: string; name: string }[]} order
  * @param {Record<string, unknown[]>} setsBySlot
  * @returns {Record<string, unknown[]>}

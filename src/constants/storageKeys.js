@@ -10,5 +10,9 @@ export const WEEKLY_SPLIT_PLAN_STORAGE_KEY = 'weekly_split_plan_v1';
 export const STRENGTH_SCORE_DISPLAYED_KEY = 'strength_score_displayed_v1';
 /** Lowercase movement names the user starred on the Movements screen. */
 export const FAVORITE_MOVEMENTS_STORAGE_KEY = 'favorite_movements_v1';
+export const SAVED_WORKOUT_PLANS_STORAGE_KEY = 'saved_workout_plans_v1';
+export const DAY_WORKOUT_ASSIGNMENTS_STORAGE_KEY = 'day_workout_assignments_v1';
+/** One-week-only remapping of Mon–Sun plan day slots (home level-icon swaps). */
+export const WEEK_PLAN_DAY_OVERRIDES_STORAGE_KEY = 'week_plan_day_overrides_v1';
 /** Dev-only: which test-user persona is active (`''` = real saved data). */
 export const DEV_ACTIVE_USER_STORAGE_KEY = 'dev_active_user_v1';

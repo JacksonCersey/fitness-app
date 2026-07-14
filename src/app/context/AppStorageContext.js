@@ -11,12 +11,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 import { buildExerciseLookup, EXERCISE_DATABASE } from '../../../data/exerciseDatabase';
 import {
+  DAY_WORKOUT_ASSIGNMENTS_STORAGE_KEY,
   PROFILE_NAME_STORAGE_KEY,
   PROFILE_BODY_STORAGE_KEY,
+  SAVED_WORKOUT_PLANS_STORAGE_KEY,
   WEEKLY_SPLIT_PLAN_STORAGE_KEY,
+  WEEK_PLAN_DAY_OVERRIDES_STORAGE_KEY,
   STRENGTH_SCORE_DISPLAYED_KEY,
   ONBOARDING_COMPLETED_STORAGE_KEY,
 } from '../../constants/storageKeys';
+import {
+  applyWeekPlanDayIndexSwap,
+  getMondayWeekKey,
+  normalizeWeekPlanDayOverrides,
+} from '../../data/weekPlanDayOverrides';
 import { getDevUserOptions } from '../../data/devFixtures/devUsers';
 import { computeStrengthScoreSummary } from '../../data/strengthScore';
 import {
@@ -24,8 +32,16 @@ import {
   getDefaultWeeklySplitPlan,
   getSplitWeekWorkoutProgress,
   normalizeWeeklySplitPlan,
+  swapWeeklySplitDays,
   weeklySplitPlanIsConfigured,
 } from '../../data/weeklySplitPlanner';
+import {
+  assignWorkoutPlanToDay,
+  swapWorkoutAssignmentsBetweenDays,
+  createEmptyWorkoutPlan,
+  normalizeDayWorkoutAssignments,
+  normalizeSavedWorkoutPlans,
+} from '../../data/workoutPlans';
 import { computeConsecutivePerfectWeekStreak } from '../../utils/consecutivePerfectWeekStreak';
 import { computeConsecutiveTrainingWeekStreak } from '../../utils/consecutiveWeekStreak';
 import {
@@ -90,6 +106,12 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
   const [hasLoadedWeightLogs, setHasLoadedWeightLogs] = useState(false);
   const [weeklySplitPlan, setWeeklySplitPlan] = useState(() => getDefaultWeeklySplitPlan());
   const [hasLoadedWeeklySplitPlan, setHasLoadedWeeklySplitPlan] = useState(false);
+  const [savedWorkoutPlans, setSavedWorkoutPlans] = useState([]);
+  const [hasLoadedSavedWorkoutPlans, setHasLoadedSavedWorkoutPlans] = useState(false);
+  const [dayWorkoutAssignments, setDayWorkoutAssignments] = useState(() => normalizeDayWorkoutAssignments());
+  const [hasLoadedDayWorkoutAssignments, setHasLoadedDayWorkoutAssignments] = useState(false);
+  const [weekPlanDayOverrides, setWeekPlanDayOverrides] = useState(() => normalizeWeekPlanDayOverrides());
+  const [hasLoadedWeekPlanDayOverrides, setHasLoadedWeekPlanDayOverrides] = useState(false);
   const [hasLoadedProfile, setHasLoadedProfile] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [hasLoadedOnboarding, setHasLoadedOnboarding] = useState(false);
@@ -141,6 +163,9 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
     hasLoadedHistory &&
     hasLoadedWeightLogs &&
     hasLoadedWeeklySplitPlan &&
+    hasLoadedSavedWorkoutPlans &&
+    hasLoadedDayWorkoutAssignments &&
+    hasLoadedWeekPlanDayOverrides &&
     hasLoadedProfile;
 
   const exerciseLookup = useMemo(() => buildExerciseLookup(EXERCISE_DATABASE), []);
@@ -250,6 +275,81 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
   useEffect(() => {
     if (!storageBootstrapDone || !devUserContextReady) return;
 
+    async function loadSavedWorkoutPlans() {
+      try {
+        const plansKey = resolveUserDataStorageKey(
+          SAVED_WORKOUT_PLANS_STORAGE_KEY,
+          activeDevUserIdRef.current,
+        );
+        const raw = await AsyncStorage.getItem(plansKey);
+        if (raw) {
+          setSavedWorkoutPlans(normalizeSavedWorkoutPlans(JSON.parse(raw)));
+        } else {
+          setSavedWorkoutPlans([]);
+        }
+      } catch (error) {
+        console.warn('Failed to load saved workout plans', error);
+      } finally {
+        setHasLoadedSavedWorkoutPlans(true);
+      }
+    }
+
+    loadSavedWorkoutPlans();
+  }, [storageBootstrapDone, devUserContextReady]);
+
+  useEffect(() => {
+    if (!storageBootstrapDone || !devUserContextReady) return;
+
+    async function loadDayWorkoutAssignments() {
+      try {
+        const assignmentsKey = resolveUserDataStorageKey(
+          DAY_WORKOUT_ASSIGNMENTS_STORAGE_KEY,
+          activeDevUserIdRef.current,
+        );
+        const raw = await AsyncStorage.getItem(assignmentsKey);
+        if (raw) {
+          setDayWorkoutAssignments(normalizeDayWorkoutAssignments(JSON.parse(raw)));
+        } else {
+          setDayWorkoutAssignments(normalizeDayWorkoutAssignments());
+        }
+      } catch (error) {
+        console.warn('Failed to load day workout assignments', error);
+      } finally {
+        setHasLoadedDayWorkoutAssignments(true);
+      }
+    }
+
+    loadDayWorkoutAssignments();
+  }, [storageBootstrapDone, devUserContextReady]);
+
+  useEffect(() => {
+    if (!storageBootstrapDone || !devUserContextReady) return;
+
+    async function loadWeekPlanDayOverrides() {
+      try {
+        const overridesKey = resolveUserDataStorageKey(
+          WEEK_PLAN_DAY_OVERRIDES_STORAGE_KEY,
+          activeDevUserIdRef.current,
+        );
+        const raw = await AsyncStorage.getItem(overridesKey);
+        if (raw) {
+          setWeekPlanDayOverrides(normalizeWeekPlanDayOverrides(JSON.parse(raw)));
+        } else {
+          setWeekPlanDayOverrides(normalizeWeekPlanDayOverrides());
+        }
+      } catch (error) {
+        console.warn('Failed to load week plan day overrides', error);
+      } finally {
+        setHasLoadedWeekPlanDayOverrides(true);
+      }
+    }
+
+    loadWeekPlanDayOverrides();
+  }, [storageBootstrapDone, devUserContextReady]);
+
+  useEffect(() => {
+    if (!storageBootstrapDone || !devUserContextReady) return;
+
     async function loadProfile() {
       try {
         const profileNameKey = resolveUserDataStorageKey(
@@ -349,10 +449,13 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
 
   useEffect(() => {
     if (!hasLoadedHistory || isApplyingDevSwitchRef.current) return;
+    // Capture user id up front so a mid-flight switch cannot write this history to the wrong keys.
+    const userIdForSave = activeDevUserIdRef.current;
 
     async function persistHistory() {
       try {
-        await saveHistoryToStorage(workoutHistory, activeDevUserIdRef.current);
+        if (isApplyingDevSwitchRef.current) return;
+        await saveHistoryToStorage(workoutHistory, userIdForSave);
       } catch (error) {
         console.warn('Failed to auto-save workout history', error);
       }
@@ -363,10 +466,12 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
 
   useEffect(() => {
     if (!hasLoadedWeightLogs || isApplyingDevSwitchRef.current) return;
+    const userIdForSave = activeDevUserIdRef.current;
 
     async function persistWeightLogs() {
       try {
-        await saveWeightLogsToStorage(weightLogs, activeDevUserIdRef.current);
+        if (isApplyingDevSwitchRef.current) return;
+        await saveWeightLogsToStorage(weightLogs, userIdForSave);
       } catch (error) {
         console.warn('Failed to auto-save weight logs', error);
       }
@@ -377,13 +482,12 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
 
   useEffect(() => {
     if (!hasLoadedWeeklySplitPlan || isApplyingDevSwitchRef.current) return;
+    const userIdForSave = activeDevUserIdRef.current;
 
     async function persistWeeklySplitPlan() {
       try {
-        const splitKey = resolveUserDataStorageKey(
-          WEEKLY_SPLIT_PLAN_STORAGE_KEY,
-          activeDevUserIdRef.current,
-        );
+        if (isApplyingDevSwitchRef.current) return;
+        const splitKey = resolveUserDataStorageKey(WEEKLY_SPLIT_PLAN_STORAGE_KEY, userIdForSave);
         await AsyncStorage.setItem(splitKey, JSON.stringify(weeklySplitPlan));
       } catch (error) {
         console.warn('Failed to save weekly split plan', error);
@@ -392,6 +496,69 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
 
     persistWeeklySplitPlan();
   }, [weeklySplitPlan, hasLoadedWeeklySplitPlan]);
+
+  useEffect(() => {
+    if (!hasLoadedSavedWorkoutPlans || isApplyingDevSwitchRef.current) return;
+    const userIdForSave = activeDevUserIdRef.current;
+
+    async function persistSavedWorkoutPlans() {
+      try {
+        if (isApplyingDevSwitchRef.current) return;
+        const plansKey = resolveUserDataStorageKey(SAVED_WORKOUT_PLANS_STORAGE_KEY, userIdForSave);
+        await AsyncStorage.setItem(plansKey, JSON.stringify(normalizeSavedWorkoutPlans(savedWorkoutPlans)));
+      } catch (error) {
+        console.warn('Failed to save workout plans', error);
+      }
+    }
+
+    persistSavedWorkoutPlans();
+  }, [savedWorkoutPlans, hasLoadedSavedWorkoutPlans]);
+
+  useEffect(() => {
+    if (!hasLoadedDayWorkoutAssignments || isApplyingDevSwitchRef.current) return;
+    const userIdForSave = activeDevUserIdRef.current;
+
+    async function persistDayWorkoutAssignments() {
+      try {
+        if (isApplyingDevSwitchRef.current) return;
+        const assignmentsKey = resolveUserDataStorageKey(
+          DAY_WORKOUT_ASSIGNMENTS_STORAGE_KEY,
+          userIdForSave,
+        );
+        await AsyncStorage.setItem(
+          assignmentsKey,
+          JSON.stringify(normalizeDayWorkoutAssignments(dayWorkoutAssignments)),
+        );
+      } catch (error) {
+        console.warn('Failed to save day workout assignments', error);
+      }
+    }
+
+    persistDayWorkoutAssignments();
+  }, [dayWorkoutAssignments, hasLoadedDayWorkoutAssignments]);
+
+  useEffect(() => {
+    if (!hasLoadedWeekPlanDayOverrides || isApplyingDevSwitchRef.current) return;
+    const userIdForSave = activeDevUserIdRef.current;
+
+    async function persistWeekPlanDayOverrides() {
+      try {
+        if (isApplyingDevSwitchRef.current) return;
+        const overridesKey = resolveUserDataStorageKey(
+          WEEK_PLAN_DAY_OVERRIDES_STORAGE_KEY,
+          userIdForSave,
+        );
+        await AsyncStorage.setItem(
+          overridesKey,
+          JSON.stringify(normalizeWeekPlanDayOverrides(weekPlanDayOverrides)),
+        );
+      } catch (error) {
+        console.warn('Failed to save week plan day overrides', error);
+      }
+    }
+
+    persistWeekPlanDayOverrides();
+  }, [weekPlanDayOverrides, hasLoadedWeekPlanDayOverrides]);
 
   const weeklyStreakDays = useMemo(() => {
     const labels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -548,6 +715,152 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
     setWeeklySplitPlan(normalizeWeeklySplitPlan(nextPlan));
   }, []);
 
+  const handleSaveWorkoutPlan = useCallback((draftPlan) => {
+    let savedPlan = null;
+    setSavedWorkoutPlans((previousPlans) => {
+      const normalizedExisting = normalizeSavedWorkoutPlans(previousPlans);
+      const fallback = createEmptyWorkoutPlan();
+      const baseId =
+        typeof draftPlan?.id === 'string' && draftPlan.id.trim() ? draftPlan.id.trim() : fallback.id;
+      const existingPlan = normalizedExisting.find((item) => item.id === baseId);
+      const createdAt = existingPlan?.createdAt ?? draftPlan?.createdAt ?? fallback.createdAt;
+      const updatedAt = new Date().toISOString();
+      savedPlan = normalizeSavedWorkoutPlans([
+        {
+          ...existingPlan,
+          ...draftPlan,
+          id: baseId,
+          createdAt,
+          updatedAt,
+        },
+      ])[0] ?? {
+        ...fallback,
+        id: baseId,
+        createdAt,
+        updatedAt,
+      };
+
+      const withoutCurrent = normalizedExisting.filter((item) => item.id !== baseId);
+      return [...withoutCurrent, savedPlan].sort((a, b) => a.name.localeCompare(b.name));
+    });
+    return savedPlan;
+  }, []);
+
+  const handleDeleteWorkoutPlan = useCallback((planId) => {
+    const normalizedPlanId = typeof planId === 'string' ? planId.trim() : '';
+    if (!normalizedPlanId) return;
+    setSavedWorkoutPlans((previousPlans) => previousPlans.filter((item) => item.id !== normalizedPlanId));
+    setDayWorkoutAssignments((previousAssignments) => ({
+      assignments: normalizeDayWorkoutAssignments(previousAssignments).assignments.map((item) =>
+        item === normalizedPlanId ? null : item
+      ),
+    }));
+  }, []);
+
+  const handleAssignWorkoutToDay = useCallback((planIndex, workoutPlanId) => {
+    setDayWorkoutAssignments((previousAssignments) =>
+      assignWorkoutPlanToDay(previousAssignments, planIndex, workoutPlanId),
+    );
+  }, []);
+
+  /**
+   * Save exercises (and optional name) onto a weekday without a library name sheet.
+   * Updates an existing custom assignment in place, or creates a provisional named plan and assigns it.
+   */
+  const handleSaveWorkoutForDay = useCallback((planIndex, { exercises, provisionalName } = {}) => {
+    const idx = Number(planIndex);
+    if (!Number.isInteger(idx) || idx < 0 || idx > 6) return null;
+
+    const cleanExercises = Array.isArray(exercises)
+      ? exercises
+          .map((item) => {
+            const movement = String(item?.movement || '').trim();
+            if (!movement) return null;
+            const targetSets = Number.parseInt(String(item?.targetSets ?? ''), 10);
+            const targetReps = Number.parseInt(String(item?.targetReps ?? ''), 10);
+            return {
+              movement,
+              targetSets: Number.isFinite(targetSets) && targetSets > 0 ? targetSets : null,
+              targetReps: Number.isFinite(targetReps) && targetReps > 0 ? targetReps : null,
+            };
+          })
+          .filter(Boolean)
+      : [];
+
+    if (cleanExercises.length === 0) return null;
+
+    let resultPlan = null;
+    const nameGuess = String(provisionalName || '').trim() || 'Workout';
+
+    setDayWorkoutAssignments((previousAssignments) => {
+      const nextAssignments = normalizeDayWorkoutAssignments(previousAssignments);
+      const assignedId = nextAssignments.assignments[idx];
+
+      setSavedWorkoutPlans((previousPlans) => {
+        const plans = normalizeSavedWorkoutPlans(previousPlans);
+        const existing =
+          assignedId && !String(assignedId).startsWith('default:')
+            ? plans.find((item) => item.id === assignedId) ?? null
+            : null;
+        const now = new Date().toISOString();
+
+        if (existing) {
+          resultPlan =
+            normalizeSavedWorkoutPlans([
+              {
+                ...existing,
+                name: nameGuess,
+                exercises: cleanExercises,
+                updatedAt: now,
+              },
+            ])[0] ?? existing;
+          const withoutCurrent = plans.filter((item) => item.id !== existing.id);
+          return [...withoutCurrent, resultPlan].sort((a, b) => a.name.localeCompare(b.name));
+        }
+
+        const created = createEmptyWorkoutPlan(nameGuess);
+        resultPlan =
+          normalizeSavedWorkoutPlans([
+            {
+              ...created,
+              exercises: cleanExercises,
+              updatedAt: now,
+            },
+          ])[0] ?? { ...created, exercises: cleanExercises, updatedAt: now };
+        nextAssignments.assignments[idx] = resultPlan.id;
+        return [...plans, resultPlan].sort((a, b) => a.name.localeCompare(b.name));
+      });
+
+      return nextAssignments;
+    });
+
+    return resultPlan;
+  }, []);
+
+  const handleSwapWorkoutBetweenDays = useCallback((dayIndexA, dayIndexB) => {
+    setDayWorkoutAssignments((previousAssignments) =>
+      swapWorkoutAssignmentsBetweenDays(previousAssignments, dayIndexA, dayIndexB),
+    );
+  }, []);
+
+  /** Swap full day identity: split type + assigned workout (repeating weekly plan). */
+  const handleSwapSplitDays = useCallback((dayIndexA, dayIndexB) => {
+    if (dayIndexA === dayIndexB) return;
+    setWeeklySplitPlan((previousPlan) => swapWeeklySplitDays(previousPlan, dayIndexA, dayIndexB));
+    setDayWorkoutAssignments((previousAssignments) =>
+      swapWorkoutAssignmentsBetweenDays(previousAssignments, dayIndexA, dayIndexB),
+    );
+  }, []);
+
+  /**
+   * Home "Swap Workout": remaps two Mon–Sun slots for the current plan week only.
+   * Does not change the recurring weekly split template.
+   */
+  const handleApplyWeekOnlyDaySwap = useCallback((weekKey, indexA, indexB) => {
+    const key = typeof weekKey === 'string' && weekKey.trim() ? weekKey.trim() : getMondayWeekKey(new Date());
+    setWeekPlanDayOverrides((previous) => applyWeekPlanDayIndexSwap(previous, key, indexA, indexB));
+  }, []);
+
   const addWeightLogEntry = useCallback(({ weightLb, dateISO }) => {
     setWeightLogs((previousLogs) => [
       ...previousLogs,
@@ -585,6 +898,9 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
     setWorkoutHistory(Array.isArray(snapshot.workoutHistory) ? snapshot.workoutHistory : []);
     setWeightLogs(Array.isArray(snapshot.weightLogs) ? snapshot.weightLogs : []);
     setWeeklySplitPlan(normalizeWeeklySplitPlan(snapshot.weeklySplitPlan));
+    setSavedWorkoutPlans(normalizeSavedWorkoutPlans(snapshot.savedWorkoutPlans));
+    setDayWorkoutAssignments(normalizeDayWorkoutAssignments(snapshot.dayWorkoutAssignments));
+    setWeekPlanDayOverrides(normalizeWeekPlanDayOverrides(snapshot.weekPlanDayOverrides));
     setFavoriteMovements(new Set(snapshot.favoriteMovements ?? []));
     setOnboardingComplete(Boolean(snapshot.onboardingComplete));
     setHasLoadedOnboarding(true);
@@ -602,6 +918,9 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
       workoutHistory,
       weightLogs,
       weeklySplitPlan,
+      savedWorkoutPlans,
+      dayWorkoutAssignments,
+      weekPlanDayOverrides,
       favoriteMovements: [...favoriteMovements],
       onboardingComplete,
       strengthScoreDisplayed: strengthScorePersistedRef.current,
@@ -613,6 +932,9 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
       workoutHistory,
       weightLogs,
       weeklySplitPlan,
+      savedWorkoutPlans,
+      dayWorkoutAssignments,
+      weekPlanDayOverrides,
       favoriteMovements,
       onboardingComplete,
     ],
@@ -666,6 +988,8 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
     setFavoriteMovements(new Set());
     setWeightLogs([]);
     setWeeklySplitPlan(getDefaultWeeklySplitPlan());
+    setSavedWorkoutPlans([]);
+    setDayWorkoutAssignments(normalizeDayWorkoutAssignments());
     setOnboardingComplete(false);
     setHasLoadedOnboarding(true);
   }, []);
@@ -870,6 +1194,9 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
       setWeightLogs,
       favoriteMovements,
       weeklySplitPlan,
+      savedWorkoutPlans,
+      dayWorkoutAssignments,
+      weekPlanDayOverrides,
       exerciseLookup,
       weekStartMondayForTargets,
       weeklyPplCounts,
@@ -887,6 +1214,13 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
       handleToggleFavoriteMovement,
       handleDeleteWorkout,
       handleChangeWeeklySplitPlan,
+      handleSaveWorkoutPlan,
+      handleDeleteWorkoutPlan,
+      handleAssignWorkoutToDay,
+      handleSaveWorkoutForDay,
+      handleSwapWorkoutBetweenDays,
+      handleSwapSplitDays,
+      handleApplyWeekOnlyDaySwap,
       syncProfileDraftFromSaved,
       handleSaveProfile,
       handleSaveGoalsOnly,
@@ -915,6 +1249,9 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
       weightLogs,
       favoriteMovements,
       weeklySplitPlan,
+      savedWorkoutPlans,
+      dayWorkoutAssignments,
+      weekPlanDayOverrides,
       exerciseLookup,
       weekStartMondayForTargets,
       weeklyPplCounts,
@@ -932,6 +1269,13 @@ export function AppStorageProvider({ children, onReturnFromSubscreenRef }) {
       handleToggleFavoriteMovement,
       handleDeleteWorkout,
       handleChangeWeeklySplitPlan,
+      handleSaveWorkoutPlan,
+      handleDeleteWorkoutPlan,
+      handleAssignWorkoutToDay,
+      handleSaveWorkoutForDay,
+      handleSwapWorkoutBetweenDays,
+      handleSwapSplitDays,
+      handleApplyWeekOnlyDaySwap,
       syncProfileDraftFromSaved,
       handleSaveProfile,
       handleSaveGoalsOnly,

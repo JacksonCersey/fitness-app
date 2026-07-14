@@ -4,6 +4,7 @@ import {
   normalizeWeeklySplitPlan,
   SPLIT_DAY_TYPE_LABELS,
 } from '../data/weeklySplitPlanner';
+import { resolveWeekPlanSourceIndex } from '../data/weekPlanDayOverrides';
 import { buildMovementCatalog, sortMovementCatalogRows } from './movementCatalog';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -49,10 +50,18 @@ export function buildDateRangeAround(anchor, daysBefore = 90, daysAfter = 90) {
  * @param {{ days: { type: string; mixedMuscles?: string[] }[] } | null | undefined} plan
  * @param {Date} date
  */
-export function getSplitEntryForDate(plan, date) {
+/**
+ * Split day entry for a calendar date.
+ * Optional `weekPlanDayOverrides` remaps this week only (home Swap Workout).
+ * @param {{ days: { type: string; mixedMuscles?: string[] }[] } | null | undefined} plan
+ * @param {Date} date
+ * @param {{ weekKey?: string; daySourceByPlanIndex?: number[] } | null | undefined} [weekPlanDayOverrides]
+ */
+export function getSplitEntryForDate(plan, date, weekPlanDayOverrides = null) {
   const normalized = normalizeWeeklySplitPlan(plan);
-  const idx = getMondayBasedDayIndex(date);
-  return normalized.days[idx] ?? { type: 'rest', mixedMuscles: [] };
+  const planIndex = getMondayBasedDayIndex(date);
+  const sourceIndex = resolveWeekPlanSourceIndex(weekPlanDayOverrides, date, planIndex);
+  return normalized.days[sourceIndex] ?? { type: 'rest', mixedMuscles: [] };
 }
 
 /** @param {Date} date @param {Date} [referenceToday] */
