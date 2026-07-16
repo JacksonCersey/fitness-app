@@ -1,17 +1,13 @@
-import React, { memo, useCallback, useMemo, useState } from 'react';
-import { Alert, Text, TouchableOpacity, View } from 'react-native';
+import React, { memo, useMemo, useState } from 'react';
+import { Text, View } from 'react-native';
 import { useGameTheme, useStyles } from '../../app/context/ThemeStylesContext';
 import { filterPointsByChartRange } from '../../utils/chartTimeRange';
+import InfoBubbleButton from '../common/InfoBubbleButton';
 import ProgressChartRangeFilter from './ProgressChartRangeFilter';
 import StrengthScoreHistoryChart from './StrengthScoreHistoryChart';
 
-function showStrengthScoreExplainer() {
-  Alert.alert(
-    'Strength Score',
-    'Your score blends three things: how you are performing lately on each lift, your lifetime personal records, and your training streak.\n\nEach movement is compared to your own recent sessions — not to other lifts. The score stays steady when weights are consistent and only drops after a genuinely weak workout.',
-    [{ text: 'Got it' }],
-  );
-}
+const STRENGTH_SCORE_INFO =
+  'Your score blends three things: how you are performing lately on each lift, your lifetime personal records, and your training streak.\n\nEach movement is compared to your own recent sessions — not to other lifts. The score stays steady when weights are consistent and only drops after a genuinely weak workout.';
 
 /**
  * @param {{
@@ -22,9 +18,6 @@ function ProgressStrengthScoreBodyPanel({ summary }) {
   const styles = useStyles();
   const theme = useGameTheme();
   const [chartRange, setChartRange] = useState('all');
-  const handleShowExplainer = useCallback(() => {
-    showStrengthScoreExplainer();
-  }, []);
 
   const filteredHistory = useMemo(
     () => filterPointsByChartRange(summary?.overallScoreHistory ?? [], chartRange),
@@ -46,13 +39,11 @@ function ProgressStrengthScoreBodyPanel({ summary }) {
     <View style={styles.progressStrengthBodyCard}>
       <View style={styles.progressStrengthBodyHeaderRow}>
         <Text style={styles.progressStrengthOverviewTitle}>Strength Score</Text>
-        <TouchableOpacity
-          style={styles.progressStrengthBodyInfoBtn}
-          onPress={handleShowExplainer}
-          accessibilityRole="button"
-          accessibilityLabel="How strength score works">
-          <Text style={styles.progressStrengthBodyInfoBtnText}>i</Text>
-        </TouchableOpacity>
+        <InfoBubbleButton
+          title="Strength Score"
+          message={STRENGTH_SCORE_INFO}
+          accessibilityLabel="How strength score works"
+        />
       </View>
 
       {summary.hasData ? (

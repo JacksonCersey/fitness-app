@@ -891,11 +891,22 @@ export function createFormsHistoryMuscleStyles(theme) {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  progressStrengthSparklinePlaceholderWide: {
+    width: 168,
+    height: 52,
+  },
   progressStrengthSparklinePlaceholderText: {
     fontSize: 10,
     fontWeight: '600',
     color: t.textMuted,
     textTransform: 'lowercase',
+  },
+  /** Short strip when only one strength score exists (no trend yet). */
+  progressStrengthSparklineStarter: {
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.14)',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   progressStrengthSparklineTrend: {
     fontSize: 11,
@@ -1745,10 +1756,6 @@ export function createFormsHistoryMuscleStyles(theme) {
     maxWidth: 420,
     marginBottom: 8,
   },
-  strengthMovementsScreenShell: {
-    position: 'relative',
-    overflow: 'hidden',
-  },
   movementsAccordionList: {
     width: '100%',
     gap: 0,
@@ -1855,10 +1862,10 @@ export function createFormsHistoryMuscleStyles(theme) {
   },
   movementsRecentScrollCard: {
     width: 168,
-    borderRadius: 18,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: t.cardBorderSubtle,
-    backgroundColor: t.cardBgTranslucent,
+    borderColor: t.borderSubtle,
+    backgroundColor: t.cardBg,
     paddingVertical: 12,
     paddingHorizontal: 12,
   },
@@ -1952,9 +1959,9 @@ export function createFormsHistoryMuscleStyles(theme) {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: t.cardBorderSubtle,
+    borderColor: t.borderSubtle,
     borderRadius: 12,
-    backgroundColor: t.innerCardBg,
+    backgroundColor: t.inputBg,
     paddingLeft: 14,
     paddingRight: 6,
     minHeight: 48,
@@ -2537,6 +2544,30 @@ export function createFormsHistoryMuscleStyles(theme) {
     fontSize: 18,
     fontWeight: '700',
     color: t.navAccent,
+  },
+  summaryTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  summaryTitleText: {
+    flex: 1,
+    textAlign: 'left',
+    marginTop: 0,
+    marginBottom: 0,
+  },
+  summaryOptionsTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 12,
+  },
+  summaryOptionsDeleteTitle: {
+    color: '#FF7C7C',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
   },
   musclePulloutRow: {
     position: 'absolute',

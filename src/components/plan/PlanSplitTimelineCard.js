@@ -72,7 +72,7 @@ function PlanSplitTimelineCard({
   exerciseLookup,
   exerciseCount,
   completionCount,
-  onPressMore,
+  onPressType,
 }) {
   const styles = useStyles();
   const isDefault = !isRest && isDefaultWorkoutPlan(workoutPlan);
@@ -92,13 +92,13 @@ function PlanSplitTimelineCard({
           </Text>
           <Text style={styles.planTimelineCardMeta}>{subtitle}</Text>
         </View>
-        {!isRest ? (
+        {onPressType ? (
           <TouchableOpacity
             style={styles.planTimelineSwapButton}
-            onPress={onPressMore}
+            onPress={onPressType}
             accessibilityRole="button"
-            accessibilityLabel={`Swap workout for ${title}`}>
-            <Text style={styles.planTimelineSwapButtonText}>Swap +</Text>
+            accessibilityLabel={`Change day type for ${title}`}>
+            <Text style={styles.planTimelineSwapButtonText}>Type</Text>
           </TouchableOpacity>
         ) : null}
       </View>

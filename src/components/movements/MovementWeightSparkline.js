@@ -1,9 +1,10 @@
 import React, { memo, useId, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, Path, Polyline, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Line, Path, Polyline, Stop } from 'react-native-svg';
 import { useGameTheme, useStyles } from '../../app/context/ThemeStylesContext';
 
 const CHART_HEIGHT = 72;
+const STARTER_HEIGHT = 28;
 const PAD_X = 6;
 const PAD_Y = 8;
 const MIN_CHART_WIDTH = 180;
@@ -44,7 +45,7 @@ function getTrendDelta(averages) {
  * @param {number | null} trendDelta
  */
 function formatTrendLabel(trendDelta) {
-  if (trendDelta == null) return 'recent avgs';
+  if (trendDelta == null) return 'same as recent';
   if (trendDelta > 0.5) return `↑ ${trendDelta.toFixed(1)} lb vs recent`;
   if (trendDelta < -0.5) return `↓ ${Math.abs(trendDelta).toFixed(1)} lb vs recent`;
   return 'same as recent';
@@ -52,6 +53,7 @@ function formatTrendLabel(trendDelta) {
 
 /**
  * Mini line chart of average weight per recent workout for one movement.
+ * With only one logged session, shows a short starter strip instead of a tall empty chart.
  * @param {{ averages: number[] }} props
  */
 function MovementWeightSparkline({ averages }) {
@@ -88,6 +90,13 @@ function MovementWeightSparkline({ averages }) {
     return `M ${first.x} ${baseY} L ${first.x} ${first.y} ${line} L ${last.x} ${baseY} Z`;
   }, [coords]);
 
+  const onChartLayout = (event) => {
+    const nextWidth = Math.round(event.nativeEvent.layout.width);
+    if (nextWidth >= MIN_CHART_WIDTH && nextWidth !== chartWidth) {
+      setChartWidth(nextWidth);
+    }
+  };
+
   if (safeAverages.length === 0) {
     return (
       <View style={styles.homeMovementSparklineWrap}>
@@ -98,15 +107,42 @@ function MovementWeightSparkline({ averages }) {
     );
   }
 
+  // One logged session: short baseline + end dot (not a tall empty chart).
+  if (safeAverages.length === 1) {
+    const midY = STARTER_HEIGHT / 2;
+    const startX = PAD_X;
+    const endX = Math.max(PAD_X + 24, chartWidth - PAD_X);
+
+    return (
+      <View style={styles.homeMovementSparklineWrap} onLayout={onChartLayout}>
+        <View style={styles.homeMovementSparklineStarter}>
+          <Svg
+            width={chartWidth}
+            height={STARTER_HEIGHT}
+            accessibilityLabel="One session logged — trend starts after another workout">
+            <Line
+              x1={startX}
+              y1={midY}
+              x2={endX}
+              y2={midY}
+              stroke={accent}
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeOpacity={0.35}
+            />
+            <Circle cx={endX} cy={midY} r={5} fill="#FFFFFF" />
+            <Circle cx={endX} cy={midY} r={3.25} fill={accent} />
+          </Svg>
+        </View>
+        <Text style={styles.homeMovementSparklineTrend}>
+          need 1 more session for a trend
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <View
-      style={styles.homeMovementSparklineWrap}
-      onLayout={(event) => {
-        const nextWidth = Math.round(event.nativeEvent.layout.width);
-        if (nextWidth >= MIN_CHART_WIDTH && nextWidth !== chartWidth) {
-          setChartWidth(nextWidth);
-        }
-      }}>
+    <View style={styles.homeMovementSparklineWrap} onLayout={onChartLayout}>
       <Svg width={chartWidth} height={CHART_HEIGHT} accessibilityLabel="Recent average weight trend">
         <Defs>
           <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -126,7 +162,10 @@ function MovementWeightSparkline({ averages }) {
           />
         ) : null}
         {lastPoint ? (
-          <Circle cx={lastPoint.x} cy={lastPoint.y} r={4} fill={accent} stroke="#FFFFFF" strokeWidth={1.5} />
+          <>
+            <Circle cx={lastPoint.x} cy={lastPoint.y} r={5} fill="#FFFFFF" />
+            <Circle cx={lastPoint.x} cy={lastPoint.y} r={3.25} fill={accent} />
+          </>
         ) : null}
       </Svg>
       <Text

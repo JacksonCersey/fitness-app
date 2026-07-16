@@ -3,6 +3,7 @@ import { useStyles } from '../app/context/ThemeStylesContext';
 import { Image, Text, View } from 'react-native';
 import {
   getExerciseDiagramPanelCount,
+  getExerciseDiagramPanelIndex,
   getExerciseDiagramSource,
 } from '../utils/exerciseDiagrams';
 import { getMovementMaxDisplay } from '../utils/movementSetHistory';
@@ -26,6 +27,7 @@ function MovementRecentScrollCard({ row, lastCompletedAtISO, exerciseLookup }) {
   );
   const diagramSource = useMemo(() => getExerciseDiagramSource(row.movement), [row.movement]);
   const diagramPanels = useMemo(() => getExerciseDiagramPanelCount(row.movement), [row.movement]);
+  const diagramPanelIndex = useMemo(() => getExerciseDiagramPanelIndex(row.movement), [row.movement]);
   const chipIconSource = diagramSource ?? muscleChip?.source ?? null;
 
   const dateLabel = useMemo(() => {
@@ -40,7 +42,12 @@ function MovementRecentScrollCard({ row, lastCompletedAtISO, exerciseLookup }) {
         <View style={styles.movementsRecentScrollChip}>
           <View style={styles.movementsRecentScrollIconWell}>
             {diagramSource ? (
-              <ExerciseDiagramIcon source={diagramSource} size={36} panels={diagramPanels} />
+              <ExerciseDiagramIcon
+                source={diagramSource}
+                size={36}
+                panels={diagramPanels}
+                panelIndex={diagramPanelIndex}
+              />
             ) : chipIconSource ? (
               <Image source={chipIconSource} style={styles.movementsRecentScrollIcon} resizeMode="contain" />
             ) : null}

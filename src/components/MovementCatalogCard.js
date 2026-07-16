@@ -3,6 +3,7 @@ import { useStyles } from '../app/context/ThemeStylesContext';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import {
   getExerciseDiagramPanelCount,
+  getExerciseDiagramPanelIndex,
   getExerciseDiagramSource,
 } from '../utils/exerciseDiagrams';
 import { isFavoriteMovement } from '../utils/movementFavorites';
@@ -29,6 +30,7 @@ function MovementCatalogCard({ row, exerciseLookup, favoriteMovements, onToggleF
   );
   const diagramSource = useMemo(() => getExerciseDiagramSource(row.movement), [row.movement]);
   const diagramPanels = useMemo(() => getExerciseDiagramPanelCount(row.movement), [row.movement]);
+  const diagramPanelIndex = useMemo(() => getExerciseDiagramPanelIndex(row.movement), [row.movement]);
   const canSelect = typeof onSelectMovement === 'function';
   const groupLabel = muscleChip?.groupLabel ?? row.primaryMuscle;
   const chipIconSource = diagramSource ?? muscleChip?.source ?? null;
@@ -50,7 +52,12 @@ function MovementCatalogCard({ row, exerciseLookup, favoriteMovements, onToggleF
           <View style={styles.strengthMovementMuscleChipRow}>
             <View style={styles.strengthMovementMuscleIconWell}>
               {diagramSource ? (
-                <ExerciseDiagramIcon source={diagramSource} size={50} panels={diagramPanels} />
+                <ExerciseDiagramIcon
+                  source={diagramSource}
+                  size={50}
+                  panels={diagramPanels}
+                  panelIndex={diagramPanelIndex}
+                />
               ) : chipIconSource ? (
                 <Image source={chipIconSource} style={styles.strengthMovementMuscleIcon} resizeMode="contain" />
               ) : null}

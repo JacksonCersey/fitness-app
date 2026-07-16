@@ -7,12 +7,16 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
+import { useActiveWorkout } from '../../app/context/ActiveWorkoutContext';
+import { useAppNavigation } from '../../app/context/AppNavigationContext';
 import { useStyles } from '../../app/context/ThemeStylesContext';
 import {
   buildDateRangeAround,
+  dateHasLoggedWorkout,
   formatWeekdayShort,
   getSplitEntryForDate,
   indexOfSameDay,
@@ -24,6 +28,8 @@ import {
 import { getLevelIconSource } from '../../utils/levelIcons';
 import { SPLIT_DAY_TYPE_LABELS } from '../../data/weeklySplitPlanner';
 import HomeSplitDayMuscleModal from './HomeSplitDayMuscleModal';
+
+const FLAG_ICON = require('../../../assets/images/icons/flagicon.png');
 
 const LEVEL_CELL_WIDTH = 104;
 const DAYS_BEFORE = 7;
@@ -156,12 +162,101 @@ function LevelTodayStar({ variant = 'icon' }) {
   );
 }
 
-function LevelDayCircle({ date, dayEntry, isSelected, useAccent, onPress }) {
+/**
+ * Completion flag on today's level icon.
+ * When `playEntrance` is true (after finishing a workout and returning home), plants with a drop bounce.
+ */
+function LevelTodayFlag({
+  variant = 'icon',
+  playEntrance = false,
+  onEntranceComplete,
+}) {
+  const styles = useStyles();
+  const progress = useSharedValue(playEntrance ? 0 : 1);
+  const completedRef = useRef(false);
+
+  const finishEntrance = useCallback(() => {
+    if (completedRef.current) return;
+    completedRef.current = true;
+    onEntranceComplete?.();
+  }, [onEntranceComplete]);
+
+  useEffect(() => {
+    if (!playEntrance) {
+      progress.value = 1;
+      return undefined;
+    }
+
+    completedRef.current = false;
+    progress.value = 0;
+    progress.value = withSpring(1, {
+      damping: 9,
+      stiffness: 150,
+      mass: 0.85,
+      overshootClamping: false,
+    });
+    const timer = setTimeout(() => {
+      finishEntrance();
+    }, 750);
+    return () => clearTimeout(timer);
+  }, [finishEntrance, playEntrance, progress]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 0.18, 1], [0, 1, 1]),
+    transform: [
+      { translateY: interpolate(progress.value, [0, 1], [-32, 0]) },
+      { scale: interpolate(progress.value, [0, 1], [0.5, 1]) },
+    ],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.homeLevelTodayFlagWrap,
+        variant === 'rest' && styles.homeLevelTodayFlagWrapRest,
+        animatedStyle,
+      ]}
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no">
+      <Image
+        source={FLAG_ICON}
+        style={[
+          styles.homeLevelTodayFlagImage,
+          variant === 'rest' && styles.homeLevelTodayFlagImageRest,
+        ]}
+        resizeMode="contain"
+        accessibilityIgnoresInvertColors
+      />
+    </Animated.View>
+  );
+}
+
+function LevelDayCircle({
+  date,
+  dayEntry,
+  isSelected,
+  useAccent,
+  onPress,
+  showCompletionFlag = false,
+  playFlagEntrance = false,
+  onFlagEntranceComplete,
+}) {
   const styles = useStyles();
   const isToday = isTodayLocalDay(date);
   const isRest = !dayEntry || dayEntry.type === 'rest';
   const label = SPLIT_DAY_TYPE_LABELS[dayEntry?.type] ?? 'Rest';
   const iconSource = getLevelIconSource(dayEntry, useAccent);
+
+  const flagAbove = showCompletionFlag ? (
+    <LevelTodayFlag
+      variant={isRest ? 'rest' : 'icon'}
+      playEntrance={playFlagEntrance}
+      onEntranceComplete={onFlagEntranceComplete}
+    />
+  ) : null;
+
+  const todayStar = isToday ? <LevelTodayStar variant={isRest ? 'rest' : 'icon'} /> : null;
 
   return (
     <TouchableOpacity
@@ -170,24 +265,21 @@ function LevelDayCircle({ date, dayEntry, isSelected, useAccent, onPress }) {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: isSelected }}
-      accessibilityLabel={`${label}${isToday ? ', today' : ''}, ${date.toLocaleDateString()}`}>
+      accessibilityLabel={`${label}${isToday ? ', today' : ''}${showCompletionFlag ? ', workout completed' : ''}, ${date.toLocaleDateString()}`}>
       {isRest ? (
         <View style={styles.homeLevelRestWrap}>
+          {flagAbove}
           {isSelected ? <LevelSelectedBounceRing variant="rest" /> : null}
           <View style={styles.homeLevelCircleRest}>
-            {isToday ? (
-              <LevelTodayStar variant="rest" />
-            ) : (
-              <LevelIconDateOverlay
-                date={date}
-                isToday={isToday}
-                variant="rest"
-              />
-            )}
+            {todayStar}
+            {!isToday ? (
+              <LevelIconDateOverlay date={date} isToday={isToday} variant="rest" />
+            ) : null}
           </View>
         </View>
       ) : iconSource ? (
         <View style={styles.homeLevelIconShell}>
+          {flagAbove}
           {isSelected ? <LevelSelectedBounceRing variant="icon" /> : null}
           <View style={styles.homeLevelIconWrap}>
             <Image
@@ -195,7 +287,7 @@ function LevelDayCircle({ date, dayEntry, isSelected, useAccent, onPress }) {
               style={styles.homeLevelIconImage}
               resizeMode="contain"
             />
-            {isToday ? <LevelTodayStar /> : null}
+            {todayStar}
             {!isToday ? (
               <LevelIconDateOverlay date={date} isToday={isToday} />
             ) : null}
@@ -236,6 +328,8 @@ const HomeWorkoutLevelSelect = forwardRef(function HomeWorkoutLevelSelect(
   ref,
 ) {
   const styles = useStyles();
+  const { currentScreen } = useAppNavigation();
+  const { pendingTodayLevelFlagReveal, consumeTodayLevelFlagReveal } = useActiveWorkout();
   const { width: screenWidth } = useWindowDimensions();
   const listWidth = screenWidth - PARENT_HORIZONTAL_PADDING * 2;
   const sideInset = Math.max(0, (listWidth - LEVEL_CELL_WIDTH) / 2);
@@ -251,6 +345,13 @@ const HomeWorkoutLevelSelect = forwardRef(function HomeWorkoutLevelSelect(
   const dates = useMemo(() => buildDateRangeAround(new Date(), DAYS_BEFORE, DAYS_AFTER), []);
   const today = useMemo(() => startOfLocalDay(new Date()), []);
   const todayIndex = useMemo(() => indexOfSameDay(dates, today), [dates, today]);
+  const todayHasCompletedWorkout = useMemo(
+    () => dateHasLoggedWorkout(workoutHistory, today),
+    [today, workoutHistory],
+  );
+  const playTodayFlagEntrance = Boolean(
+    pendingTodayLevelFlagReveal && currentScreen === 'menu' && todayHasCompletedWorkout,
+  );
 
   const reportScrolledFromToday = useCallback(
     (offsetX) => {
@@ -354,6 +455,7 @@ const HomeWorkoutLevelSelect = forwardRef(function HomeWorkoutLevelSelect(
       const entry = getSplitEntryForDate(weeklySplitPlan, date, weekPlanDayOverrides);
       const isSelected = isSameLocalDay(date, selectedDate);
       const useAccent = shouldLevelCircleUseAccentColor(date, workoutHistory);
+      const isToday = isSameLocalDay(date, today);
 
       return (
         <LevelDayCircle
@@ -362,10 +464,23 @@ const HomeWorkoutLevelSelect = forwardRef(function HomeWorkoutLevelSelect(
           isSelected={isSelected}
           useAccent={useAccent}
           onPress={() => handleCirclePress(date, entry)}
+          showCompletionFlag={isToday && todayHasCompletedWorkout}
+          playFlagEntrance={isToday && playTodayFlagEntrance}
+          onFlagEntranceComplete={isToday ? consumeTodayLevelFlagReveal : undefined}
         />
       );
     },
-    [handleCirclePress, selectedDate, weekPlanDayOverrides, weeklySplitPlan, workoutHistory],
+    [
+      consumeTodayLevelFlagReveal,
+      handleCirclePress,
+      playTodayFlagEntrance,
+      selectedDate,
+      today,
+      todayHasCompletedWorkout,
+      weekPlanDayOverrides,
+      weeklySplitPlan,
+      workoutHistory,
+    ],
   );
 
   return (
@@ -387,6 +502,7 @@ const HomeWorkoutLevelSelect = forwardRef(function HomeWorkoutLevelSelect(
         <FlatList
           ref={listRef}
           data={dates}
+          extraData={`${selectedDate?.getTime?.()}-${todayHasCompletedWorkout}-${playTodayFlagEntrance}`}
           keyExtractor={(d) => `level-${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`}
           renderItem={renderDay}
           horizontal

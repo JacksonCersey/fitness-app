@@ -1,10 +1,12 @@
 import React, { memo, useId, useMemo } from 'react';
 import { Text, View } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, Path, Polyline, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Line, Path, Polyline, Stop } from 'react-native-svg';
 import { useGameTheme, useStyles } from '../../app/context/ThemeStylesContext';
 
 const CHART_WIDTH = 112;
 const CHART_HEIGHT = 44;
+const STARTER_HEIGHT = 22;
+const STARTER_HEIGHT_WIDE = 26;
 const PAD_X = 4;
 const PAD_Y = 6;
 
@@ -36,7 +38,7 @@ function buildSparklineCoords(values, width, height) {
  * @param {{ trendDelta: number | null }} props
  */
 function formatTrendLabel(trendDelta) {
-  if (trendDelta == null) return 'recent sessions';
+  if (trendDelta == null) return 'holding steady';
   if (trendDelta > 0.5) return `↑ ${trendDelta.toFixed(1)}`;
   if (trendDelta < -0.5) return `↓ ${Math.abs(trendDelta).toFixed(1)}`;
   return 'holding steady';
@@ -44,9 +46,11 @@ function formatTrendLabel(trendDelta) {
 
 /**
  * Mini line chart of recent overall strength scores.
+ * With only one logged score, shows a short starter strip instead of a tall empty chart.
  * @param {{
  *   scores: number[],
  *   trendDelta?: number | null,
+ *   wide?: boolean,
  * }} props
  */
 function StrengthScoreSparkline({ scores, trendDelta = null, wide = false }) {
@@ -57,6 +61,7 @@ function StrengthScoreSparkline({ scores, trendDelta = null, wide = false }) {
   const gradientId = `strengthSparkFill-${rawId}`;
   const chartWidth = wide ? 168 : CHART_WIDTH;
   const chartHeight = wide ? 52 : CHART_HEIGHT;
+  const starterHeight = wide ? STARTER_HEIGHT_WIDE : STARTER_HEIGHT;
 
   const safeScores = useMemo(
     () => (Array.isArray(scores) ? scores.filter((v) => Number.isFinite(v)) : []),
@@ -87,9 +92,51 @@ function StrengthScoreSparkline({ scores, trendDelta = null, wide = false }) {
   if (safeScores.length === 0) {
     return (
       <View style={styles.progressStrengthSparklineWrap}>
-        <View style={styles.progressStrengthSparklinePlaceholder}>
+        <View
+          style={[
+            styles.progressStrengthSparklinePlaceholder,
+            wide && styles.progressStrengthSparklinePlaceholderWide,
+          ]}>
           <Text style={styles.progressStrengthSparklinePlaceholderText}>no trend yet</Text>
         </View>
+      </View>
+    );
+  }
+
+  // One logged score: short baseline + end dot (not a tall empty chart).
+  if (safeScores.length === 1) {
+    const midY = starterHeight / 2;
+    const startX = PAD_X;
+    const endX = Math.max(PAD_X + 20, chartWidth - PAD_X);
+
+    return (
+      <View style={styles.progressStrengthSparklineWrap}>
+        <View
+          style={[
+            styles.progressStrengthSparklineStarter,
+            { width: chartWidth, height: starterHeight },
+          ]}>
+          <Svg
+            width={chartWidth}
+            height={starterHeight}
+            accessibilityLabel="One strength score logged — trend starts after another workout">
+            <Line
+              x1={startX}
+              y1={midY}
+              x2={endX}
+              y2={midY}
+              stroke={accent}
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeOpacity={0.35}
+            />
+            <Circle cx={endX} cy={midY} r={4.5} fill="#FFFFFF" />
+            <Circle cx={endX} cy={midY} r={2.75} fill={accent} />
+          </Svg>
+        </View>
+        <Text style={styles.progressStrengthSparklineTrend}>
+          need 1 more session for a trend
+        </Text>
       </View>
     );
   }
@@ -115,7 +162,14 @@ function StrengthScoreSparkline({ scores, trendDelta = null, wide = false }) {
           />
         ) : null}
         {lastPoint ? (
-          <Circle cx={lastPoint.x} cy={lastPoint.y} r={3.5} fill={accent} stroke="#FFFFFF" strokeWidth={1.5} />
+          <Circle
+            cx={lastPoint.x}
+            cy={lastPoint.y}
+            r={3.5}
+            fill={accent}
+            stroke="#FFFFFF"
+            strokeWidth={1.5}
+          />
         ) : null}
       </Svg>
       <Text

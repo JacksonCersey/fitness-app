@@ -13,6 +13,7 @@ import { WORKOUT_SHEET_SPRING_CONFIG } from '../../constants/workoutSheetAnimati
 import { EXERCISE_DATABASE } from '../../../data/exerciseDatabase';
 import {
   getExerciseDiagramPanelCount,
+  getExerciseDiagramPanelIndex,
   getExerciseDiagramSource,
 } from '../../utils/exerciseDiagrams';
 import { getHighlightIconSourceForMuscleLabel } from '../../utils/splitDayHighlightIcons';
@@ -206,6 +207,7 @@ function PlanDayWorkoutBuilder({
         source: diagram,
         isDiagram: true,
         panels: getExerciseDiagramPanelCount(movementName),
+        panelIndex: getExerciseDiagramPanelIndex(movementName),
       };
     }
     const match = EXERCISE_DATABASE.find(
@@ -215,6 +217,7 @@ function PlanDayWorkoutBuilder({
       source: getHighlightIconSourceForMuscleLabel(match?.primaryMuscles?.[0]),
       isDiagram: false,
       panels: 2,
+      panelIndex: 0,
     };
   }, []);
 
@@ -249,6 +252,7 @@ function PlanDayWorkoutBuilder({
                 iconSource={icon.source}
                 iconIsDiagram={icon.isDiagram}
                 diagramPanels={icon.panels}
+                diagramPanelIndex={icon.panelIndex}
                 onOpen={openTargetSheet}
                 onRequestDelete={handleRemoveExercise}
               />

@@ -13,6 +13,7 @@ function ActiveWorkoutExerciseSwipeRow({
   iconSource,
   iconIsDiagram = false,
   diagramPanels = 2,
+  diagramPanelIndex = 0,
   onOpen,
   onRequestDelete,
 }) {
@@ -93,7 +94,12 @@ function ActiveWorkoutExerciseSwipeRow({
           <View style={styles.activeWorkoutExerciseIconWell}>
             {iconSource ? (
               iconIsDiagram ? (
-                <ExerciseDiagramIcon source={iconSource} size={44} panels={diagramPanels} />
+                <ExerciseDiagramIcon
+                  source={iconSource}
+                  size={44}
+                  panels={diagramPanels}
+                  panelIndex={diagramPanelIndex}
+                />
               ) : (
                 <Image source={iconSource} style={styles.activeWorkoutExerciseIcon} resizeMode="contain" />
               )

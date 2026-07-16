@@ -10,7 +10,6 @@ import {
   View,
 } from 'react-native';
 import MovementRecentScrollCard from '../components/MovementRecentScrollCard';
-import MenuStarfieldBackground from '../components/MenuStarfieldBackground';
 import MovementCatalogCard from '../components/MovementCatalogCard';
 import MovementsAccordionSection, {
   configureMovementsAccordionAnimation,
@@ -105,25 +104,25 @@ function StrengthMovementsScreen({
   );
 
   return (
-    <SafeAreaView style={[styles.menuScreen, styles.strengthMovementsScreenShell]}>
-      <MenuStarfieldBackground />
+    <SafeAreaView style={styles.menuScreen}>
       <Animated.View style={[styles.screenFadeContainer, { opacity: screenTransitionOpacity }]}>
+        <View style={styles.profileStickyHeader}>
+          <TouchableOpacity
+            style={[styles.profileStickyCloseButton, styles.planTimelineBackButton]}
+            activeOpacity={0.85}
+            onPress={onBack}
+            accessibilityRole="button"
+            accessibilityLabel="Go back">
+            <Text style={styles.homeTopBackToTodayText}>‹</Text>
+          </TouchableOpacity>
+          <Text style={styles.menuSubscreenNavTitle}>Movements</Text>
+        </View>
+
         <ScrollView
           style={styles.profileScrollOuter}
           contentContainerStyle={styles.profileScrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          <View style={styles.profileHeaderRow}>
-            <TouchableOpacity
-              style={styles.profileCloseInlineButton}
-              onPress={onBack}
-              accessibilityRole="button"
-              accessibilityLabel="Go back">
-              <Text style={[styles.workoutCloseButtonText, { color: theme.navBack }]}>‹</Text>
-            </TouchableOpacity>
-            <Text style={styles.menuSubscreenNavTitle}>Movements</Text>
-          </View>
-
           <Text style={[styles.menuMoreBodyText, { marginBottom: 12 }]}>
             {selectionMode === 'workoutPlan'
               ? 'Tap any movement to add it to the workout you are building.'
@@ -155,7 +154,7 @@ function StrengthMovementsScreen({
               value={movementSearchQuery}
               onChangeText={setMovementSearchQuery}
               placeholder="Search movements…"
-              placeholderTextColor="rgba(238, 241, 255, 0.45)"
+              placeholderTextColor={theme.placeholderText}
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="search"

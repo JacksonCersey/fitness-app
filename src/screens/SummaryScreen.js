@@ -3,6 +3,9 @@ import { useGameTheme, useStyles, useWorkoutTheme } from '../app/context/ThemeSt
 import {
   Animated,
   Image,
+  Modal,
+  Pressable,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -15,6 +18,17 @@ import { computeStrengthScoreSummary } from '../data/strengthScore';
 import { computeConsecutiveTrainingWeekStreak } from '../utils/consecutiveWeekStreak';
 import { formatTime, isBodyweightOnlyExercise } from '../utils/formatWorkout';
 import { getHighlightIconSourceForMuscleLabel } from '../utils/splitDayHighlightIcons';
+
+function MoreDotsIcon({ color }) {
+  const styles = useStyles();
+  return (
+    <View style={styles.planWorkoutMoreDots} accessibilityElementsHidden>
+      <View style={[styles.planWorkoutMoreDot, { backgroundColor: color }]} />
+      <View style={[styles.planWorkoutMoreDot, { backgroundColor: color }]} />
+      <View style={[styles.planWorkoutMoreDot, { backgroundColor: color }]} />
+    </View>
+  );
+}
 
 function SummaryScreen({
   screenTransitionOpacity,
@@ -41,6 +55,7 @@ function SummaryScreen({
   readOnly = false,
   skipAnimations = false,
   returnButtonLabel = 'Return to Menu',
+  onDeleteWorkout = null,
 }) {
   const styles = useStyles();
   const wt = useWorkoutTheme();
@@ -92,6 +107,21 @@ function SummaryScreen({
   const [goalTrackWidth, setGoalTrackWidth] = useState(0);
   const [rankTrackWidth, setRankTrackWidth] = useState(0);
   const [animatedScoreValue, setAnimatedScoreValue] = useState(preWorkoutScore);
+  const [optionsVisible, setOptionsVisible] = useState(false);
+  const canShowOptions = typeof onDeleteWorkout === 'function';
+
+  const handleOpenOptions = useCallback(() => {
+    setOptionsVisible(true);
+  }, []);
+
+  const handleCloseOptions = useCallback(() => {
+    setOptionsVisible(false);
+  }, []);
+
+  const handleDeleteFromOptions = useCallback(() => {
+    setOptionsVisible(false);
+    onDeleteWorkout?.();
+  }, [onDeleteWorkout]);
 
   const handleCardLayout = useCallback((event) => {
     const width = event?.nativeEvent?.layout?.width ?? 0;
@@ -275,7 +305,21 @@ function SummaryScreen({
           contentContainerStyle={styles.summaryScrollContent}
           showsVerticalScrollIndicator={false}>
           <View style={styles.summaryScreenHeader}>
-            <Text style={styles.homeSessionTitle}>Summary</Text>
+            {canShowOptions ? (
+              <View style={styles.summaryTitleRow}>
+                <Text style={[styles.homeSessionTitle, styles.summaryTitleText]}>Summary</Text>
+                <TouchableOpacity
+                  style={styles.planWorkoutMoreButton}
+                  onPress={handleOpenOptions}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Workout options">
+                  <MoreDotsIcon color={theme.textPrimary} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <Text style={styles.homeSessionTitle}>Summary</Text>
+            )}
             <View style={styles.summaryStatsBar}>
               <View style={styles.summaryStatCell}>
                 <Text style={styles.summaryStatValue}>{formatTime(elapsedSeconds)}</Text>
@@ -527,6 +571,50 @@ function SummaryScreen({
             <Text style={styles.summaryReturnButtonText}>{returnButtonLabel}</Text>
           </TouchableOpacity>
         </View>
+
+        <Modal
+          transparent
+          animationType="fade"
+          visible={optionsVisible}
+          onRequestClose={handleCloseOptions}>
+          <View style={styles.muscleModalBackdrop}>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={handleCloseOptions}
+              accessibilityLabel="Dismiss"
+            />
+            <View
+              style={[
+                styles.planOptionsModalCard,
+                { backgroundColor: theme.cardBg, borderColor: theme.borderSubtle },
+              ]}>
+              <Text style={styles.summaryOptionsTitle}>Workout options</Text>
+              <TouchableOpacity
+                style={styles.planPickerOption}
+                onPress={handleDeleteFromOptions}
+                accessibilityRole="button"
+                accessibilityLabel="Delete workout">
+                <Text style={styles.summaryOptionsDeleteTitle}>Delete workout</Text>
+                <Text style={styles.planPickerOptionMeta}>
+                  Remove this workout from your history
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.planOptionsSecondaryButton,
+                  {
+                    backgroundColor: theme.surfaceRaised,
+                    borderColor: theme.borderSubtle,
+                  },
+                ]}
+                onPress={handleCloseOptions}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel">
+                <Text style={styles.planOptionsSecondaryButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </Animated.View>
     </SafeAreaView>
   );

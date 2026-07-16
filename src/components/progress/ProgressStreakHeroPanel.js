@@ -1,21 +1,17 @@
-import React, { memo, useCallback, useMemo } from 'react';
-import { Alert, Image, Text, TouchableOpacity, View } from 'react-native';
+import React, { memo, useMemo } from 'react';
+import { Image, Text, View } from 'react-native';
 import { useStyles } from '../../app/context/ThemeStylesContext';
 import { getStreakRankProgress } from '../../data/streakRanks';
 import { computeBestTrainingWeekStreak, hasLoggedWorkoutInCurrentWeek } from '../../utils/consecutiveWeekStreak';
+import InfoBubbleButton from '../common/InfoBubbleButton';
 
 const STREAK_LOGO_ACTIVE = require('../../../assets/images/icons/streaklogo.png');
 const STREAK_LOGO_INACTIVE = require('../../../assets/images/streaklogo-inactive.png');
 /** Fixed orange for the week-streak progress bar (not rank accent). */
 const STREAK_BAR_ORANGE = '#F97316';
 
-function showWeekStreakExplainer() {
-  Alert.alert(
-    'Week streak',
-    'Your week streak counts consecutive Sunday–Saturday weeks with at least one logged workout.\n\nIf you have not trained yet this week, your streak stays intact until the week ends — then it resets if you miss it.',
-    [{ text: 'Got it' }],
-  );
-}
+const WEEK_STREAK_INFO =
+  'Your week streak counts consecutive Sunday–Saturday weeks with at least one logged workout.\n\nIf you have not trained yet this week, your streak stays intact until the week ends — then it resets if you miss it.';
 
 /**
  * Expanded current-streak hero for Progress → Streak.
@@ -26,9 +22,6 @@ function showWeekStreakExplainer() {
  */
 function ProgressStreakHeroPanel({ consecutiveTrainingWeekStreak, workoutHistory }) {
   const styles = useStyles();
-  const handleShowExplainer = useCallback(() => {
-    showWeekStreakExplainer();
-  }, []);
 
   const rank = useMemo(
     () => getStreakRankProgress(consecutiveTrainingWeekStreak),
@@ -49,13 +42,11 @@ function ProgressStreakHeroPanel({ consecutiveTrainingWeekStreak, workoutHistory
       accessibilityLabel={`${currentWeeks} week streak, ${rank.displayRank.label} rank`}>
       <View style={styles.progressStreakHeroHeaderRow}>
         <Text style={styles.progressStreakSectionTitle}>Week streak</Text>
-        <TouchableOpacity
-          style={styles.progressStrengthBodyInfoBtn}
-          onPress={handleShowExplainer}
-          accessibilityRole="button"
-          accessibilityLabel="How week streak works">
-          <Text style={styles.progressStrengthBodyInfoBtnText}>i</Text>
-        </TouchableOpacity>
+        <InfoBubbleButton
+          title="Week streak"
+          message={WEEK_STREAK_INFO}
+          accessibilityLabel="How week streak works"
+        />
       </View>
 
       <View style={styles.progressStreakHeroTopRow}>

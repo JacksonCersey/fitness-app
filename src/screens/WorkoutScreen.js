@@ -15,7 +15,6 @@ import {
 import {
   BottomSheetBackdrop,
   BottomSheetFlatList,
-  BottomSheetFooter,
   BottomSheetModal,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
@@ -25,8 +24,11 @@ import { aggregateSessionMuscleHeatFromSets } from '../../data/workoutMuscleHeat
 import ActiveWorkoutExerciseSwipeRow from '../components/ActiveWorkoutExerciseSwipeRow';
 import WorkoutCelebrationBanner from '../components/WorkoutCelebrationBanner';
 import WorkoutSessionTargetsSheetContent from '../components/WorkoutSessionTargetsSheetContent';
+import ExerciseDiagramIcon from '../components/ExerciseDiagramIcon';
+import ExerciseDiagramFull from '../components/ExerciseDiagramFull';
 import {
   getExerciseDiagramPanelCount,
+  getExerciseDiagramPanelIndex,
   getExerciseDiagramSource,
 } from '../utils/exerciseDiagrams';
 import { formatWorkoutTimerHms } from '../utils/formatWorkout';
@@ -42,10 +44,27 @@ const LOG_SET_SHEET_SNAP_POINTS = ['96%'];
 /** Permanent blank area below saved sets (≈ keyboard). Prevents layout jump when editing. */
 const LOG_SHEET_BOTTOM_SLOT_MIN = 280;
 const LOG_SHEET_BOTTOM_SLOT_MAX = 360;
-/** Sticky Save set footer (button + padding), for scroll alignment. */
-const LOG_SHEET_FOOTER_BLOCK = 92;
 /** Where an edited row should land in the safe area (0 top, 1 bottom). */
 const LOG_SHEET_SAFE_ANCHOR_RATIO = 0.62;
+
+const ADD_MOVEMENT_TYPE_FILTERS = [
+  { id: 'push', label: 'Push' },
+  { id: 'pull', label: 'Pull' },
+  { id: 'legs', label: 'Legs' },
+  { id: 'upper', label: 'Upper' },
+  { id: 'lower', label: 'Lower' },
+];
+
+/** @param {string | null | undefined} weeklyCategory @param {string} filterId */
+function exerciseMatchesTypeFilter(weeklyCategory, filterId) {
+  const cat = String(weeklyCategory || '').trim().toLowerCase();
+  if (filterId === 'push' || filterId === 'pull' || filterId === 'legs') {
+    return cat === filterId;
+  }
+  if (filterId === 'upper') return cat === 'push' || cat === 'pull';
+  if (filterId === 'lower') return cat === 'legs';
+  return true;
+}
 
 function presentBottomSheet(ref) {
   requestAnimationFrame(() => {
@@ -98,6 +117,7 @@ function WorkoutScreen({
   const wt = useWorkoutTheme();
   const insets = useSafeAreaInsets();
   const [addSearch, setAddSearch] = useState('');
+  const [addTypeFilter, setAddTypeFilter] = useState(null);
   const [targetsSheetVisible, setTargetsSheetVisible] = useState(false);
   const [notepadFieldFocus, setNotepadFieldFocus] = useState('weight');
   const [logSheetKeyboardHeight, setLogSheetKeyboardHeight] = useState(0);
@@ -155,7 +175,7 @@ function WorkoutScreen({
   }, []);
 
   const logSheetScrollContentPaddingBottom = useMemo(
-    () => LOG_SHEET_FOOTER_BLOCK + insets.bottom + 16 + logSheetBottomSlotHeight,
+    () => insets.bottom + 16 + logSheetBottomSlotHeight,
     [insets.bottom, logSheetBottomSlotHeight],
   );
 
@@ -193,7 +213,10 @@ function WorkoutScreen({
   );
 
   useEffect(() => {
-    if (addMovementSheetVisible) setAddSearch('');
+    if (addMovementSheetVisible) {
+      setAddSearch('');
+      setAddTypeFilter(null);
+    }
   }, [addMovementSheetVisible]);
 
   const addSheetEverPresentedRef = useRef(false);
@@ -292,31 +315,6 @@ function WorkoutScreen({
     return () => subs.forEach((sub) => sub.remove());
   }, [insets.bottom, logSetSheetExercise]);
 
-  const renderLogSheetSaveButton = useCallback(
-    () => (
-      <TouchableOpacity
-        style={[styles.menuPrimaryButton, { backgroundColor: theme.navAccent }]}
-        onPress={() => commitNotepadSet()}
-        accessibilityRole="button"
-        accessibilityLabel="Save set">
-        <Text style={[styles.menuPrimaryButtonText, { color: '#FFFFFF' }]}>Save set</Text>
-      </TouchableOpacity>
-    ),
-    [commitNotepadSet, theme.navAccent],
-  );
-
-  const renderLogSheetFooter = useCallback(
-    (footerProps) => {
-      if (!logSetSheetExercise) return null;
-      return (
-        <BottomSheetFooter {...footerProps} bottomInset={insets.bottom}>
-          <View style={styles.logSheetSaveFooter}>{renderLogSheetSaveButton()}</View>
-        </BottomSheetFooter>
-      );
-    },
-    [logSetSheetExercise, insets.bottom, renderLogSheetSaveButton],
-  );
-
   useEffect(() => {
     storedSetRowLayoutsRef.current = {};
   }, [logSetSheetExercise, setsByMovement]);
@@ -325,7 +323,7 @@ function WorkoutScreen({
     storedSetRowLayoutsRef.current[index] = layout;
   }, []);
 
-  const scrollEditedSetAboveSaveButton = useCallback(
+  const scrollEditedSetAboveKeyboard = useCallback(
     (setIndex) => {
       const layout = storedSetRowLayoutsRef.current[setIndex];
       const viewportH = logSheetScrollViewportHeightRef.current;
@@ -334,10 +332,9 @@ function WorkoutScreen({
         return;
       }
 
-      const footerBlock = LOG_SHEET_FOOTER_BLOCK + insets.bottom + 12;
       const keyboardBlock = logSheetKeyboardHeight > 0 ? logSheetKeyboardHeight + 10 : 0;
       const safeTopY = 0;
-      const safeBottomY = Math.max(safeTopY + 1, viewportH - footerBlock - keyboardBlock);
+      const safeBottomY = Math.max(safeTopY + 1, viewportH - insets.bottom - 12 - keyboardBlock);
       const safeAnchorY =
         safeTopY + (safeBottomY - safeTopY) * LOG_SHEET_SAFE_ANCHOR_RATIO;
       const rowCenterY = layout.y + layout.height / 2;
@@ -347,7 +344,7 @@ function WorkoutScreen({
         return;
       }
 
-      // Move the row center to the safe anchor so it stays clear of footer + keyboard.
+      // Move the row center to the safe anchor so it stays clear of the keyboard.
       const targetY = rowCenterY - safeAnchorY;
 
       logSheetScrollRef.current?.scrollTo({
@@ -375,9 +372,9 @@ function WorkoutScreen({
       return undefined;
     }
 
-    const scrollTimer = setTimeout(() => scrollEditedSetAboveSaveButton(setIndex), 64);
+    const scrollTimer = setTimeout(() => scrollEditedSetAboveKeyboard(setIndex), 64);
     return () => clearTimeout(scrollTimer);
-  }, [editingSetKey, logSetSheetExercise, logSheetKeyboardHeight, scrollEditedSetAboveSaveButton]);
+  }, [editingSetKey, logSetSheetExercise, logSheetKeyboardHeight, scrollEditedSetAboveKeyboard]);
 
   useEffect(() => {
     if (!editingSetKey) {
@@ -424,9 +421,14 @@ function WorkoutScreen({
 
   const filteredAddExercises = useMemo(() => {
     const q = addSearch.trim().toLowerCase();
-    if (!q) return EXERCISE_DATABASE;
-    return EXERCISE_DATABASE.filter((ex) => ex.name.toLowerCase().includes(q));
-  }, [addSearch]);
+    return EXERCISE_DATABASE.filter((ex) => {
+      if (addTypeFilter && !exerciseMatchesTypeFilter(ex.weeklyCategory, addTypeFilter)) {
+        return false;
+      }
+      if (!q) return true;
+      return ex.name.toLowerCase().includes(q);
+    });
+  }, [addSearch, addTypeFilter]);
 
   const bottomBarPad = 12 + insets.bottom;
   const closeAddSheet = useCallback(() => {
@@ -471,6 +473,11 @@ function WorkoutScreen({
     return slot?.name ?? '';
   }, [logSetSheetExercise, workoutMovementOrder]);
 
+  const logSheetDiagramSource = useMemo(
+    () => getExerciseDiagramSource(logSheetExerciseName || logSetSheetExercise),
+    [logSheetExerciseName, logSetSheetExercise],
+  );
+
   const iconForExerciseName = useCallback(
     (name) => {
       const diagram = getExerciseDiagramSource(name);
@@ -479,6 +486,7 @@ function WorkoutScreen({
           source: diagram,
           isDiagram: true,
           panels: getExerciseDiagramPanelCount(name),
+          panelIndex: getExerciseDiagramPanelIndex(name),
         };
       }
       const meta = exerciseLookup[name?.toLowerCase?.() ?? ''];
@@ -487,6 +495,7 @@ function WorkoutScreen({
         source: getHighlightIconSourceForMuscleLabel(primary),
         isDiagram: false,
         panels: 2,
+        panelIndex: 0,
       };
     },
     [exerciseLookup],
@@ -504,6 +513,7 @@ function WorkoutScreen({
         iconSource={icon.source}
         iconIsDiagram={icon.isDiagram}
         diagramPanels={icon.panels}
+        diagramPanelIndex={icon.panelIndex}
         onOpen={onOpenLogSetSheet}
         onRequestDelete={onRequestRemoveMovementFromWorkout}
       />
@@ -553,6 +563,7 @@ function WorkoutScreen({
           <TouchableOpacity
             style={styles.activeWorkoutAddRow}
             onPress={handlePressAddMovement}
+            activeOpacity={0.88}
             accessibilityRole="button"
             accessibilityLabel="Add movement">
             <View style={styles.activeWorkoutAddIconBox}>
@@ -630,7 +641,7 @@ function WorkoutScreen({
               </TouchableOpacity>
             </View>
           </View>
-          <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8 }}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 }}>
             <TextInput
               value={addSearch}
               onChangeText={setAddSearch}
@@ -644,9 +655,56 @@ function WorkoutScreen({
                 {
                   backgroundColor: wt.splitModalInnerBg,
                   color: wt.inputText,
+                  marginBottom: 10,
                 },
               ]}
             />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.activeWorkoutMuscleFilterRow}>
+              <TouchableOpacity
+                style={[
+                  styles.activeWorkoutMuscleFilterChip,
+                  addTypeFilter == null && styles.activeWorkoutMuscleFilterChipActive,
+                ]}
+                onPress={() => setAddTypeFilter(null)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: addTypeFilter == null }}
+                accessibilityLabel="Show all exercise types">
+                <Text
+                  style={[
+                    styles.activeWorkoutMuscleFilterChipText,
+                    addTypeFilter == null && styles.activeWorkoutMuscleFilterChipTextActive,
+                  ]}>
+                  All
+                </Text>
+              </TouchableOpacity>
+              {ADD_MOVEMENT_TYPE_FILTERS.map((filter) => {
+                const selected = addTypeFilter === filter.id;
+                return (
+                  <TouchableOpacity
+                    key={filter.id}
+                    style={[
+                      styles.activeWorkoutMuscleFilterChip,
+                      selected && styles.activeWorkoutMuscleFilterChipActive,
+                    ]}
+                    onPress={() => setAddTypeFilter(selected ? null : filter.id)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={`Filter by ${filter.label}`}>
+                    <Text
+                      style={[
+                        styles.activeWorkoutMuscleFilterChipText,
+                        selected && styles.activeWorkoutMuscleFilterChipTextActive,
+                      ]}>
+                      {filter.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
           <BottomSheetFlatList
             data={filteredAddExercises}
@@ -655,7 +713,10 @@ function WorkoutScreen({
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: insets.bottom + 16 }}
             renderItem={({ item }) => {
-              const src = getHighlightIconSourceForMuscleLabel(item.primaryMuscles?.[0]);
+              const diagramSource = getExerciseDiagramSource(item.name);
+              const muscleFallback = diagramSource
+                ? null
+                : getHighlightIconSourceForMuscleLabel(item.primaryMuscles?.[0]);
               return (
                 <TouchableOpacity
                   style={styles.activeWorkoutSheetExerciseRow}
@@ -663,9 +724,20 @@ function WorkoutScreen({
                     onPickExerciseForWorkout(item.name);
                     closeAddSheet();
                   }}>
-                  <View style={styles.activeWorkoutExerciseIconWell}>
-                    {src ? (
-                      <Image source={src} style={styles.activeWorkoutExerciseIcon} resizeMode="contain" />
+                  <View style={styles.activeWorkoutSheetExerciseIconWell}>
+                    {diagramSource ? (
+                      <ExerciseDiagramIcon
+                        source={diagramSource}
+                        size={64}
+                        panels={getExerciseDiagramPanelCount(item.name)}
+                        panelIndex={getExerciseDiagramPanelIndex(item.name)}
+                      />
+                    ) : muscleFallback ? (
+                      <Image
+                        source={muscleFallback}
+                        style={styles.activeWorkoutSheetExerciseIcon}
+                        resizeMode="contain"
+                      />
                     ) : null}
                   </View>
                   <Text style={[styles.activeWorkoutSheetExerciseName, { color: wt.textPrimary }]}>{item.name}</Text>
@@ -687,7 +759,6 @@ function WorkoutScreen({
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
         android_keyboardInputMode="adjustResize"
-        footerComponent={renderLogSheetFooter}
         backdropComponent={renderSheetBackdrop}
         onChange={handleLogSheetChange}
         onDismiss={syncLogSheetClosed}
@@ -748,6 +819,11 @@ function WorkoutScreen({
               paddingBottom: logSheetScrollContentPaddingBottom,
             }}
             keyboardDismissMode="on-drag">
+            {logSheetDiagramSource ? (
+              <View style={styles.logSheetDiagramWrap}>
+                <ExerciseDiagramFull source={logSheetDiagramSource} />
+              </View>
+            ) : null}
             <View
               style={[
                 styles.notepadTwinRow,

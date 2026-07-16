@@ -95,6 +95,8 @@ export function ActiveWorkoutProvider({ children, workoutStartRef }) {
   const [logSetSheetExercise, setLogSetSheetExercise] = useState(null);
   const [workoutCelebration, setWorkoutCelebration] = useState(null);
   const workoutCelebrationShownKeysRef = useRef(new Set());
+  /** Home: plant flag on today's level icon after completing a workout and returning. */
+  const [pendingTodayLevelFlagReveal, setPendingTodayLevelFlagReveal] = useState(false);
   const [setsByMovement, setSetsByMovement] = useState({});
 
   const activeMovementName = useCustomMovement ? customMovementName.trim() : selectedMovement.trim();
@@ -139,6 +141,10 @@ export function ActiveWorkoutProvider({ children, workoutStartRef }) {
 
   const dismissWorkoutCelebration = useCallback(() => {
     setWorkoutCelebration(null);
+  }, []);
+
+  const consumeTodayLevelFlagReveal = useCallback(() => {
+    setPendingTodayLevelFlagReveal(false);
   }, []);
 
   function tryCelebrateLoggedSet(exerciseName, weightLb, reps) {
@@ -382,6 +388,7 @@ export function ActiveWorkoutProvider({ children, workoutStartRef }) {
       handleApplyWeekOnlyDaySwap(pendingSwap.weekKey, pendingSwap.indexA, pendingSwap.indexB);
     }
 
+    setPendingTodayLevelFlagReveal(true);
     setCurrentScreen('summary');
   }
 
@@ -821,6 +828,8 @@ export function ActiveWorkoutProvider({ children, workoutStartRef }) {
     weeklySubcategorySetCounts,
     workoutCelebration,
     dismissWorkoutCelebration,
+    pendingTodayLevelFlagReveal,
+    consumeTodayLevelFlagReveal,
     handleStartNewWorkout,
     displaySetsByMovement,
     movementNamesNewestFirst,

@@ -49,7 +49,9 @@ function MoreGoalsScreen({
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.profileSaveButton} onPress={onSaveGoal}>
+          <TouchableOpacity
+            style={[styles.profileSaveButton, { backgroundColor: theme.navAccent }]}
+            onPress={onSaveGoal}>
             <Text style={styles.profileSaveButtonText}>Save goal</Text>
           </TouchableOpacity>
         </ScrollView>

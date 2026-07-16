@@ -3,12 +3,15 @@ import { Image, Text, View } from 'react-native';
 import { useStyles } from '../../app/context/ThemeStylesContext';
 import {
   getExerciseDiagramPanelCount,
+  getExerciseDiagramPanelIndex,
   getExerciseDiagramSource,
 } from '../../utils/exerciseDiagrams';
 import { formatRecentSetLine, getMovementMaxDisplay } from '../../utils/movementSetHistory';
 import { getHighlightChipForMovement } from '../../utils/splitDayHighlightIcons';
 import ExerciseDiagramIcon from '../ExerciseDiagramIcon';
 import MovementWeightSparkline from './MovementWeightSparkline';
+
+const DIAGRAM_SIZE = 64;
 
 /**
  * @param {{
@@ -30,7 +33,7 @@ function MovementHistoryCard({
   exerciseLookup,
   targetSets = null,
   targetReps = null,
-  showImagePlaceholder = false,
+  showImagePlaceholder = true,
   emptyHistoryText = 'Finish a workout with this movement to see your max and recent sets here.',
   weightAverages = null,
 }) {
@@ -42,38 +45,53 @@ function MovementHistoryCard({
   );
   const diagramSource = useMemo(() => getExerciseDiagramSource(movement), [movement]);
   const diagramPanels = useMemo(() => getExerciseDiagramPanelCount(movement), [movement]);
+  const diagramPanelIndex = useMemo(() => getExerciseDiagramPanelIndex(movement), [movement]);
   const recentLines = summary?.recentSets?.slice(0, 3) ?? [];
   const hasTargetLine = Number(targetSets) > 0 && Number(targetReps) > 0;
   const showSparkline = Array.isArray(weightAverages);
-  const showDiagram = Boolean(diagramSource) || showImagePlaceholder;
 
   return (
     <View style={styles.homeMovementCard}>
       <View style={styles.homeMovementCardTop}>
-        {showDiagram ? (
-          <View style={styles.homeMovementImagePlaceholder}>
+        <View style={styles.homeMovementDiagramWrap}>
+          <View style={styles.homeMovementDiagramBox}>
             {diagramSource ? (
-              <ExerciseDiagramIcon source={diagramSource} size={48} panels={diagramPanels} />
-            ) : muscleChip ? (
-              <>
-                <Image source={muscleChip.source} style={styles.homeMovementPlaceholderIcon} />
-                <Text style={styles.homeMovementPlaceholderText}>image</Text>
-              </>
-            ) : (
+              <ExerciseDiagramIcon
+                source={diagramSource}
+                size={DIAGRAM_SIZE - 8}
+                panels={diagramPanels}
+                panelIndex={diagramPanelIndex}
+              />
+            ) : showImagePlaceholder ? (
               <Text style={styles.homeMovementPlaceholderText}>image</Text>
-            )}
+            ) : null}
           </View>
-        ) : muscleChip ? (
-          <View style={styles.homeMovementChipWell}>
-            <Image source={muscleChip.source} style={styles.homeMovementChipIcon} />
-          </View>
-        ) : (
-          <View style={styles.homeMovementChipWell} />
-        )}
+          {muscleChip ? (
+            <View
+              style={styles.homeMovementMuscleBadge}
+              accessibilityLabel={`Muscles worked: ${muscleChip.groupLabel}`}>
+              <Image
+                source={muscleChip.source}
+                style={styles.homeMovementMuscleBadgeIcon}
+                resizeMode="contain"
+              />
+            </View>
+          ) : null}
+        </View>
+
         <View style={styles.homeMovementTextColumn}>
           <Text style={styles.homeMovementTitle} numberOfLines={2}>
             {movement}
           </Text>
+          {maxDisplay ? (
+            <View style={styles.homeMovementMaxInline}>
+              <Text style={styles.homeMovementMaxInlineLabel}>{maxDisplay.label}</Text>
+              <Text style={styles.homeMovementMaxInlineValue}>
+                {maxDisplay.primary}
+                {maxDisplay.suffix ? ` ${maxDisplay.suffix}` : ''}
+              </Text>
+            </View>
+          ) : null}
           {hasTargetLine ? (
             <Text style={styles.homeMovementTargetLine}>
               {targetSets} sets × {targetReps} reps
@@ -81,37 +99,23 @@ function MovementHistoryCard({
           ) : null}
         </View>
       </View>
+
       {showSparkline ? (
         <>
-          {maxDisplay ? (
-            <View style={styles.homeMovementMaxRow}>
-              <Text style={styles.homeMovementMaxLabel}>{maxDisplay.label}</Text>
-              <Text style={styles.homeMovementMaxValue}>
-                {maxDisplay.primary}
-                {maxDisplay.suffix ? ` ${maxDisplay.suffix}` : ''}
-              </Text>
-            </View>
-          ) : (
+          {!maxDisplay ? (
             <Text style={styles.homeMovementEmptyText}>{emptyHistoryText}</Text>
-          )}
+          ) : null}
           <View style={styles.homeMovementSparklineRow}>
             <MovementWeightSparkline averages={weightAverages} />
           </View>
         </>
       ) : (
         <>
-          {maxDisplay ? (
-            <View style={styles.homeMovementMaxRow}>
-              <Text style={styles.homeMovementMaxLabel}>{maxDisplay.label}</Text>
-              <Text style={styles.homeMovementMaxValue}>
-                {maxDisplay.primary}
-                {maxDisplay.suffix ? ` ${maxDisplay.suffix}` : ''}
-              </Text>
-            </View>
-          ) : null}
           {recentLines.length > 0 ? (
             recentLines.map((setItem, idx) => (
-              <Text key={`${movement}-${setItem.sortKey}-${idx}`} style={styles.homeMovementRecentLine}>
+              <Text
+                key={`${movement}-${setItem.sortKey}-${idx}`}
+                style={styles.homeMovementRecentLine}>
                 {formatRecentSetLine(setItem, movement, exerciseLookup)}
               </Text>
             ))

@@ -1,10 +1,11 @@
-import React, { memo, useCallback, useMemo } from 'react';
-import { Alert, Image, Text, TouchableOpacity, View } from 'react-native';
+import React, { memo, useMemo } from 'react';
+import { Image, Text, View } from 'react-native';
 import Svg, { Circle, Defs, G, LinearGradient, Stop } from 'react-native-svg';
 import { useGameTheme, useStyles } from '../../app/context/ThemeStylesContext';
 import { weeklySplitPlanIsConfigured } from '../../data/weeklySplitPlanner';
 import { getCurrentWeekPerfectCarouselState } from '../../utils/consecutivePerfectWeekStreak';
 import { computeBestPerfectWeekStreak } from '../../utils/streakHistory';
+import InfoBubbleButton from '../common/InfoBubbleButton';
 
 const PERFECT_STREAK_LOGO = require('../../../assets/images/icons/perfectstreaklogo.png');
 const STREAK_LOGO_INACTIVE = require('../../../assets/images/streaklogo-inactive.png');
@@ -12,13 +13,8 @@ const STREAK_LOGO_INACTIVE = require('../../../assets/images/streaklogo-inactive
 const RING_SIZE = 72;
 const RING_STROKE = 7;
 
-function showPerfectStreakExplainer() {
-  Alert.alert(
-    'Perfect weeks',
-    'A perfect week means every scheduled training day on your weekly split had a logged workout.\n\nYour perfect streak counts consecutive weeks that fully hit the plan.',
-    [{ text: 'Got it' }],
-  );
-}
+const PERFECT_WEEKS_INFO =
+  'A perfect week means every scheduled training day on your weekly split had a logged workout.\n\nYour perfect streak counts consecutive weeks that fully hit the plan.';
 
 /**
  * Perfect-week streak card for Progress → Streak.
@@ -36,9 +32,6 @@ function ProgressPerfectStreakPanel({
   const styles = useStyles();
   const theme = useGameTheme();
   const planConfigured = weeklySplitPlanIsConfigured(weeklySplitPlan);
-  const handleShowExplainer = useCallback(() => {
-    showPerfectStreakExplainer();
-  }, []);
 
   const recordPerfect = useMemo(
     () => (planConfigured ? computeBestPerfectWeekStreak(weeklySplitPlan, workoutHistory) : 0),
@@ -65,13 +58,11 @@ function ProgressPerfectStreakPanel({
     <View style={styles.progressPerfectStreakPanel}>
       <View style={styles.progressStreakHeroHeaderRow}>
         <Text style={styles.progressStreakSectionTitle}>Perfect weeks</Text>
-        <TouchableOpacity
-          style={styles.progressStrengthBodyInfoBtn}
-          onPress={handleShowExplainer}
-          accessibilityRole="button"
-          accessibilityLabel="How perfect weeks work">
-          <Text style={styles.progressStrengthBodyInfoBtnText}>i</Text>
-        </TouchableOpacity>
+        <InfoBubbleButton
+          title="Perfect weeks"
+          message={PERFECT_WEEKS_INFO}
+          accessibilityLabel="How perfect weeks work"
+        />
       </View>
 
       {!planConfigured ? (

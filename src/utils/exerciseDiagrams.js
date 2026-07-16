@@ -11,7 +11,7 @@ const DIAGRAM_BY_MOVEMENT = {
   'barbell row': require('../../assets/images/exercise diagrams/Barbell Bent Over Wide Grip Row/37211101-Barbell-Bent-Over-Wide-Grip-Row_Back_medium.png'),
   deadlift: require('../../assets/images/exercise diagrams/Barbell Clean Deadlift/15151101-Barbell-Clean-Deadlift_Thighs_medium.png'),
   'barbell curl': require('../../assets/images/exercise diagrams/Barbell Curl/00311101-Barbell-Curl_Upper-Arms-FIX_medium.png'),
-  'bench press': require('../../assets/images/exercise diagrams/Barbell Feet Flat Bench Press/65841101-Barbell-Feet-Flat-Bench-Press-(male)_Chest_medium.png'),
+  'bench press': require('../../assets/images/exercise-diagrams/barbell-bench-press-medium.png'),
   'front squat': require('../../assets/images/exercise diagrams/Barbell Front Squat/00421101-Barbell-Front-Squat_Hips-FIX_medium.png'),
   'hip thrust': require('../../assets/images/exercise diagrams/Barbell Hip Thrust/10601101-Barbell-Hip-Thrust_Hips_medium.png'),
   'skull crusher': require('../../assets/images/exercise diagrams/Barbell Lying Triceps Extension/00611101-Barbell-Lying-Triceps-Extension_Upper-Arms_medium.png'),
@@ -54,6 +54,15 @@ const PANEL_COUNT_OVERRIDES = {
   'walking lunge': 4,
 };
 
+/**
+ * Which panel to show as the icon (0 = leftmost). Prefer a clear “active” pose
+ * when the first frame is mostly blank standing space.
+ * @type {Record<string, number>}
+ */
+const PANEL_INDEX_OVERRIDES = {
+  'walking lunge': 1,
+};
+
 const DEFAULT_PANEL_COUNT = 2;
 
 /**
@@ -85,4 +94,18 @@ export function getExerciseDiagramPanelCount(movementName) {
   if (!key || DIAGRAM_BY_MOVEMENT[key] == null) return DEFAULT_PANEL_COUNT;
   const override = PANEL_COUNT_OVERRIDES[key];
   return Number.isFinite(override) && override >= 1 ? override : DEFAULT_PANEL_COUNT;
+}
+
+/**
+ * Which panel index to use for icons (0-based from the left).
+ * @param {string | null | undefined} movementName
+ * @returns {number}
+ */
+export function getExerciseDiagramPanelIndex(movementName) {
+  const key = normalizeMovementKey(movementName);
+  if (!key || DIAGRAM_BY_MOVEMENT[key] == null) return 0;
+  const override = PANEL_INDEX_OVERRIDES[key];
+  if (!Number.isFinite(override) || override < 0) return 0;
+  const max = getExerciseDiagramPanelCount(key) - 1;
+  return Math.min(max, Math.floor(override));
 }

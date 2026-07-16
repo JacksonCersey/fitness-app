@@ -17,12 +17,11 @@ import { useGameTheme, useStyles } from '../app/context/ThemeStylesContext';
 import { usePlanSplitTransition } from '../app/context/PlanSplitTransitionContext';
 import PlanSplitTimelineCard from '../components/plan/PlanSplitTimelineCard';
 import PlanTimelineDayDot from '../components/plan/PlanTimelineDayDot';
-import WorkoutPlanSwapSheet from '../components/plan/WorkoutPlanSwapSheet';
+import PlanSplitDayTypeSheet from '../components/plan/PlanSplitDayTypeSheet';
 import { isSplitPlanTrainingDay } from '../data/weeklySplitPlanner';
 import {
   PLAN_DAY_LABELS,
   getWorkoutPlanForDay,
-  isDefaultWorkoutPlan,
 } from '../data/workoutPlans';
 import { countSplitTypeSessions } from '../utils/homeDashboard';
 import { getSplitDayAccentColor } from '../utils/splitDayColors';
@@ -145,10 +144,8 @@ function PlanSplitTimelineScreen({
   savedWorkoutPlans,
   workoutHistory,
   exerciseLookup,
-  onRequestCreateWorkoutForDay,
   onSwapSplitDays,
-  onAssignWorkoutToDay,
-  onSwapWorkoutBetweenDays,
+  onChangeWeeklySplitPlan,
 }) {
   const styles = useStyles();
   const theme = useGameTheme();
@@ -161,7 +158,7 @@ function PlanSplitTimelineScreen({
   const scrollOffsetYRef = useRef(0);
   const scrollToTopResolveRef = useRef(null);
   const returningRef = useRef(false);
-  const swapSheetRef = useRef(null);
+  const typeSheetRef = useRef(null);
   const dragFramesRef = useRef([]);
   const draggingFromRef = useRef(null);
   const contentOpacity = useRef(new Animated.Value(0)).current;
@@ -170,8 +167,8 @@ function PlanSplitTimelineScreen({
   const [dropTarget, setDropTarget] = useState(null);
   const [scrollLocked, setScrollLocked] = useState(false);
   const [ghost, setGhost] = useState(null);
-  const [swapSheetOpen, setSwapSheetOpen] = useState(false);
-  const [swapTargetPlanIndex, setSwapTargetPlanIndex] = useState(0);
+  const [typeSheetOpen, setTypeSheetOpen] = useState(false);
+  const [typeTargetPlanIndex, setTypeTargetPlanIndex] = useState(0);
 
   const {
     phase,
@@ -334,36 +331,43 @@ function PlanSplitTimelineScreen({
     clearDrag();
   }, [clearDrag]);
 
-  const swapTargetDayEntry = useMemo(
-    () => weeklySplitPlan?.days?.[swapTargetPlanIndex] ?? { type: 'rest', mixedMuscles: [] },
-    [weeklySplitPlan, swapTargetPlanIndex],
-  );
-  const swapTargetWorkoutPlan = useMemo(
-    () =>
-      getWorkoutPlanForDay(
-        dayWorkoutAssignments,
-        savedWorkoutPlans,
-        swapTargetPlanIndex,
-        swapTargetDayEntry,
-      ),
-    [dayWorkoutAssignments, savedWorkoutPlans, swapTargetPlanIndex, swapTargetDayEntry],
-  );
-  const swapTargetShowingDefault = Boolean(
-    swapTargetWorkoutPlan && isDefaultWorkoutPlan(swapTargetWorkoutPlan),
+  const typeTargetDayEntry = useMemo(
+    () => weeklySplitPlan?.days?.[typeTargetPlanIndex] ?? { type: 'rest', mixedMuscles: [] },
+    [weeklySplitPlan, typeTargetPlanIndex],
   );
 
-  const syncSwapSheetClosed = useCallback(() => {
-    setSwapSheetOpen(false);
+  const syncTypeSheetClosed = useCallback(() => {
+    setTypeSheetOpen(false);
   }, []);
 
-  const openSwapSheet = useCallback(
+  const openTypeSheet = useCallback(
     (planIndex) => {
       if (isBusy || draggingFrom != null) return;
-      setSwapTargetPlanIndex(planIndex);
-      setSwapSheetOpen(true);
-      presentBottomSheet(swapSheetRef);
+      setTypeTargetPlanIndex(planIndex);
+      setTypeSheetOpen(true);
+      presentBottomSheet(typeSheetRef);
     },
     [draggingFrom, isBusy],
+  );
+
+  const handleChangeDayType = useCallback(
+    (planIndex, nextDay) => {
+      if (!onChangeWeeklySplitPlan || !weeklySplitPlan?.days) return;
+      const type = String(nextDay?.type || '').trim();
+      if (!type) return;
+      const nextDays = weeklySplitPlan.days.map((day, index) => {
+        if (index !== planIndex) return day;
+        if (type === 'mixed') {
+          return {
+            type: 'mixed',
+            mixedMuscles: Array.isArray(nextDay.mixedMuscles) ? [...nextDay.mixedMuscles] : [],
+          };
+        }
+        return { type, mixedMuscles: [] };
+      });
+      onChangeWeeklySplitPlan({ days: nextDays });
+    },
+    [onChangeWeeklySplitPlan, weeklySplitPlan],
   );
 
   const handleScroll = useCallback((event) => {
@@ -496,7 +500,7 @@ function PlanSplitTimelineScreen({
                             exerciseLookup={exerciseLookup}
                             exerciseCount={row.exerciseCount}
                             completionCount={row.completionCount}
-                            onPressMore={row.isTraining ? () => openSwapSheet(row.planIndex) : undefined}
+                            onPressType={() => openTypeSheet(row.planIndex)}
                           />
                         </Animated.View>
                       </View>
@@ -529,22 +533,13 @@ function PlanSplitTimelineScreen({
             </View>
           </Animated.View>
 
-          {swapSheetOpen ? (
-            <WorkoutPlanSwapSheet
-              ref={swapSheetRef}
-              selectedPlanIndex={swapTargetPlanIndex}
-              weeklySplitPlan={weeklySplitPlan}
-              savedWorkoutPlans={savedWorkoutPlans}
-              dayWorkoutAssignments={dayWorkoutAssignments}
-              selectedWorkoutPlanId={swapTargetShowingDefault ? null : swapTargetWorkoutPlan?.id ?? null}
-              onAssignWorkoutToDay={onAssignWorkoutToDay}
-              onSwapWorkoutBetweenDays={onSwapWorkoutBetweenDays}
-              onCreateNew={() => {
-                const dayIndex = swapTargetPlanIndex;
-                setSwapSheetOpen(false);
-                onRequestCreateWorkoutForDay?.({ planIndex: dayIndex, mode: 'create' });
-              }}
-              onDismiss={syncSwapSheetClosed}
+          {typeSheetOpen ? (
+            <PlanSplitDayTypeSheet
+              ref={typeSheetRef}
+              planIndex={typeTargetPlanIndex}
+              dayEntry={typeTargetDayEntry}
+              onChangeDayType={handleChangeDayType}
+              onDismiss={syncTypeSheetClosed}
             />
           ) : null}
         </SafeAreaView>

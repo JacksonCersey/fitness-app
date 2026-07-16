@@ -60,7 +60,7 @@ function SummaryWeekProgressPager({
                 styles.summaryStreakFill,
                 {
                   width: goalFillAnim,
-                  backgroundColor: theme.navAccent,
+                  backgroundColor: theme.streakGold,
                 },
               ]}
             />

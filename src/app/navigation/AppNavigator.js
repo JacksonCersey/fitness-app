@@ -114,6 +114,7 @@ function HistoricalWorkoutSummaryRoute() {
     exerciseLookup,
     weightLogs,
     weeklySplitPlan,
+    handleDeleteWorkout,
   } = useAppStorage();
   const { viewingHistoricalWorkoutId, handleCloseHistoricalWorkoutSummary } = useHistoryProgress();
 
@@ -163,6 +164,7 @@ function HistoricalWorkoutSummaryRoute() {
         readOnly
         skipAnimations
         returnButtonLabel="Back"
+        onDeleteWorkout={() => handleDeleteWorkout(workout.id)}
       />
     </>
   );
@@ -321,10 +323,8 @@ function SubscreenLayer() {
           savedWorkoutPlans={savedWorkoutPlans}
           workoutHistory={workoutHistory}
           exerciseLookup={exerciseLookup}
-          onRequestCreateWorkoutForDay={requestPlanInlineBuilder}
           onSwapSplitDays={handleSwapSplitDays}
-          onAssignWorkoutToDay={handleAssignWorkoutToDay}
-          onSwapWorkoutBetweenDays={handleSwapWorkoutBetweenDays}
+          onChangeWeeklySplitPlan={handleChangeWeeklySplitPlan}
         />
       </>
     );

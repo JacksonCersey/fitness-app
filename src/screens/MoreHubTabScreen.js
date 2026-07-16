@@ -120,10 +120,10 @@ function MoreHubTabScreen({
           />
           <MoreLinkRow
             icon={MORE_LINK_ICONS.targets}
-            title="Plan"
+            title="Split"
             subtitle="Set your weekly training days"
             onPress={handleOpenSplitPlannerFromMore}
-            accessibilityLabel="Weekly training plan"
+            accessibilityLabel="Weekly training split"
           />
         </MoreLinkGroup>
 

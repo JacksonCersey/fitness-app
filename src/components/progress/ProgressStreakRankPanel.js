@@ -1,6 +1,5 @@
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   Image,
   LayoutAnimation,
@@ -15,6 +14,7 @@ import { STREAK_RANKS, getStreakRankProgress } from '../../data/streakRanks';
 import { filterPointsByChartRange, STREAK_CHART_TIME_RANGE_OPTIONS } from '../../utils/chartTimeRange';
 import { computeBestTrainingWeekStreak } from '../../utils/consecutiveWeekStreak';
 import { buildRankHistorySeries } from '../../utils/streakHistory';
+import InfoBubbleButton from '../common/InfoBubbleButton';
 import ProgressChartRangeFilter from './ProgressChartRangeFilter';
 import ProgressRankHistoryChart from './ProgressRankHistoryChart';
 
@@ -23,6 +23,9 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 const RANK_FOLD_DURATION_MS = 340;
+
+const RANK_INFO =
+  'Your rank is based on consecutive weeks with at least one logged workout.\n\nKeep the chain going to unlock the next tier. Flat stretches on the history graph mean you held a rank; jumps are rank-ups or streak breaks.';
 
 function configureRankFoldAnimation() {
   // Smooth height change for the panel + soft fade for the new/removed rows.
@@ -40,14 +43,6 @@ function configureRankFoldAnimation() {
       property: LayoutAnimation.Properties.opacity,
     },
   });
-}
-
-function showRankExplainer() {
-  Alert.alert(
-    'Rank',
-    'Your rank is based on consecutive weeks with at least one logged workout.\n\nKeep the chain going to unlock the next tier. Flat stretches on the history graph mean you held a rank; jumps are rank-ups or streak breaks.',
-    [{ text: 'Got it' }],
-  );
 }
 
 /**
@@ -77,10 +72,6 @@ function ProgressStreakRankPanel({ consecutiveTrainingWeekStreak, workoutHistory
     inputRange: [0, 1],
     outputRange: ['-90deg', '90deg'],
   });
-
-  const handleShowExplainer = useCallback(() => {
-    showRankExplainer();
-  }, []);
 
   const rank = useMemo(
     () => getStreakRankProgress(consecutiveTrainingWeekStreak),
@@ -114,13 +105,11 @@ function ProgressStreakRankPanel({ consecutiveTrainingWeekStreak, workoutHistory
     <View style={styles.progressStreakRankPanel}>
       <View style={styles.progressStreakHeroHeaderRow}>
         <Text style={styles.progressStreakSectionTitle}>Rank</Text>
-        <TouchableOpacity
-          style={styles.progressStrengthBodyInfoBtn}
-          onPress={handleShowExplainer}
-          accessibilityRole="button"
-          accessibilityLabel="How rank works">
-          <Text style={styles.progressStrengthBodyInfoBtnText}>i</Text>
-        </TouchableOpacity>
+        <InfoBubbleButton
+          title="Rank"
+          message={RANK_INFO}
+          accessibilityLabel="How rank works"
+        />
       </View>
 
       <View style={styles.progressStreakRankCurrentRow}>
