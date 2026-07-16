@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import { useStyles, useWorkoutTheme } from '../app/context/ThemeStylesContext';
+import { useGameTheme, useStyles, useWorkoutTheme } from '../app/context/ThemeStylesContext';
 import { SHARED_ACCENTS } from '../theme/gameTheme';
 import { Image, Text, View } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
@@ -7,6 +7,7 @@ import BackMuscleDiagramSvg from '../../components/BackMuscleDiagramSvg';
 import FrontMuscleDiagramSvg from '../../components/FrontMuscleDiagramSvg';
 import { isSplitPlanTrainingDay, weeklySplitPlanIsConfigured } from '../data/weeklySplitPlanner';
 import { muscleActivationFromDisplayLabels } from '../utils/muscleActivationFromLabels';
+import { getSplitDayAccentColor } from '../utils/splitDayColors';
 import { WEEKLY_SET_TARGETS } from '../utils/weeklyPplSetTotals';
 
 const MINI_SVG_HEIGHT = 52;
@@ -188,9 +189,9 @@ function planIndexFromSunFirstColumn(colIndex) {
   return (colIndex + 6) % 7;
 }
 
-/** @typedef {'rest' | 'weight' | 'streak' | 'perfect'} WeekStripIcon */
+/** @typedef {'rest' | 'weight' | 'dot' | 'streak' | 'perfect'} WeekStripIcon */
 
-function SplitWeekStripCell({ letter, icon, isToday, a11yLabel }) {
+function SplitWeekStripCell({ letter, icon, isToday, a11yLabel, dotColor }) {
   const styles = useStyles();
   const wt = useWorkoutTheme();
   return (
@@ -226,6 +227,14 @@ function SplitWeekStripCell({ letter, icon, isToday, a11yLabel }) {
           resizeMode="contain"
           accessibilityElementsHidden
         />
+      ) : icon === 'dot' ? (
+        <View
+          style={[
+            styles.targetsSplitWeekColorDot,
+            { backgroundColor: dotColor, borderColor: dotColor },
+          ]}
+          accessibilityElementsHidden
+        />
       ) : (
         <View
           style={[styles.targetsSplitWeekRestCircle, isToday && styles.targetsSplitWeekRestCircleToday]}
@@ -239,6 +248,7 @@ function SplitWeekStripCell({ letter, icon, isToday, a11yLabel }) {
 export const TargetsSplitWeekStrip = memo(function TargetsSplitWeekStrip({ weeklySplitPlan }) {
   const styles = useStyles();
   const wt = useWorkoutTheme();
+  const gameTheme = useGameTheme();
   const days = weeklySplitPlan?.days;
 
   return (
@@ -250,12 +260,14 @@ export const TargetsSplitWeekStrip = memo(function TargetsSplitWeekStrip({ weekl
         const planIdx = planIndexFromSunFirstColumn(colIndex);
         const dayEntry = days?.[planIdx];
         const isTraining = isSplitPlanTrainingDay(dayEntry);
-        const a11y = `${SUN_FIRST_NAMES[colIndex]}, ${isTraining ? 'workout day' : 'rest day'}`;
+        const dayType = dayEntry?.type ?? 'rest';
+        const a11y = `${SUN_FIRST_NAMES[colIndex]}, ${isTraining ? `${dayType} day` : 'rest day'}`;
         return (
           <SplitWeekStripCell
             key={`${letter}-${colIndex}`}
             letter={letter}
-            icon={isTraining ? 'weight' : 'rest'}
+            icon={isTraining ? 'dot' : 'rest'}
+            dotColor={isTraining ? getSplitDayAccentColor(dayType, gameTheme) : undefined}
             isToday={false}
             a11yLabel={a11y}
           />

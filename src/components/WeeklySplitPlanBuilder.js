@@ -85,8 +85,8 @@ function WeeklySplitPlanBuilder({ weeklySplitPlan, onChangeWeeklySplitPlan, them
               style={[
                 styles.splitPlanBuilderDayCountChip,
                 {
-                  backgroundColor: selected ? wt.primaryButtonBg : wt.innerCardBg,
-                  borderColor: selected ? wt.cardBorder : wt.inputBorder,
+                  backgroundColor: selected ? wt.selectedExerciseBg : wt.innerCardBg,
+                  borderColor: selected ? wt.selectedExerciseBorder : wt.inputBorder,
                 },
               ]}
               onPress={() => handleSelectDays(count)}
@@ -96,7 +96,7 @@ function WeeklySplitPlanBuilder({ weeklySplitPlan, onChangeWeeklySplitPlan, them
               <Text
                 style={[
                   styles.splitPlanBuilderDayCountChipText,
-                  { color: selected ? wt.primaryButtonText : wt.textPrimary },
+                  { color: wt.textPrimary },
                 ]}>
                 {count}
               </Text>
@@ -120,8 +120,8 @@ function WeeklySplitPlanBuilder({ weeklySplitPlan, onChangeWeeklySplitPlan, them
               style={[
                 styles.splitPlanBuilderPresetCard,
                 {
-                  backgroundColor: selected ? wt.splitModalInnerBg : wt.cardBg,
-                  borderColor: selected ? wt.primaryButtonBg : wt.cardBorder,
+                  backgroundColor: selected ? wt.selectedExerciseBg : wt.cardBg,
+                  borderColor: selected ? wt.selectedExerciseBorder : wt.cardBorder,
                 },
               ]}
               onPress={() => handleSelectPreset(preset.id)}

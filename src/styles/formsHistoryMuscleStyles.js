@@ -2962,6 +2962,13 @@ export function createFormsHistoryMuscleStyles(theme) {
     borderColor: t.cardBorder,
     backgroundColor: 'transparent',
   },
+  targetsSplitWeekColorDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginTop: 7,
+    borderWidth: 2,
+  },
   targetsSplitWeekRestCircleToday: {
     borderColor: t.cardBg,
   },

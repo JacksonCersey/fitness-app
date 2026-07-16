@@ -152,8 +152,8 @@ function WeeklySplitPlannerEditor({ weeklySplitPlan, onChangeWeeklySplitPlan, th
                     style={[
                       styles.splitPlannerTypeRow,
                       {
-                        backgroundColor: selected ? wt.primaryButtonBg : wt.splitModalInnerBg,
-                        borderColor: selected ? wt.cardBorder : wt.inputBorder,
+                        backgroundColor: selected ? wt.selectedExerciseBg : wt.splitModalInnerBg,
+                        borderColor: selected ? wt.selectedExerciseBorder : wt.inputBorder,
                       },
                     ]}
                     onPress={() => selectType(t)}
@@ -162,7 +162,7 @@ function WeeklySplitPlannerEditor({ weeklySplitPlan, onChangeWeeklySplitPlan, th
                     <Text
                       style={[
                         styles.splitPlannerTypeRowLabel,
-                        { color: selected ? wt.primaryButtonText : wt.textPrimary },
+                        { color: wt.textPrimary },
                       ]}>
                       {SPLIT_DAY_TYPE_LABELS[t]}
                     </Text>
@@ -189,15 +189,15 @@ function WeeklySplitPlannerEditor({ weeklySplitPlan, onChangeWeeklySplitPlan, th
                           style={[
                             styles.splitPlannerMuscleChip,
                             {
-                              backgroundColor: on ? wt.primaryButtonBg : wt.splitModalInnerBg,
-                              borderColor: on ? wt.cardBorder : wt.inputBorder,
+                              backgroundColor: on ? wt.navAccent : wt.splitModalInnerBg,
+                              borderColor: on ? wt.navAccent : wt.inputBorder,
                             },
                           ]}
                           onPress={() => toggleMuscle(muscleName)}>
                           <Text
                             style={[
                               styles.splitPlannerMuscleChipText,
-                              { color: on ? wt.primaryButtonText : wt.textSecondary },
+                              { color: on ? '#FFFFFF' : wt.textSecondary },
                             ]}>
                             {muscleName}
                           </Text>
@@ -216,9 +216,9 @@ function WeeklySplitPlannerEditor({ weeklySplitPlan, onChangeWeeklySplitPlan, th
                 <Text style={[styles.splitPlannerModalButtonText, { color: wt.textPrimary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.splitPlannerModalButton, { backgroundColor: wt.primaryButtonBg, borderColor: wt.cardBorder }]}
+                style={[styles.splitPlannerModalButton, { backgroundColor: wt.navAccent, borderColor: wt.navAccent }]}
                 onPress={applyModal}>
-                <Text style={[styles.splitPlannerModalButtonText, { color: wt.primaryButtonText }]}>Apply</Text>
+                <Text style={[styles.splitPlannerModalButtonText, { color: '#FFFFFF' }]}>Apply</Text>
               </TouchableOpacity>
             </View>
           </View>

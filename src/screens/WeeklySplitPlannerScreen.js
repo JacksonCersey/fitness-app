@@ -29,7 +29,7 @@ function WeeklySplitPlannerScreen({ screenTransitionOpacity, onBack, weeklySplit
               accessibilityLabel="Go back">
               <Text style={[styles.workoutCloseButtonText, { color: wt.textPrimary }]}>‹</Text>
             </TouchableOpacity>
-            <Text style={styles.menuSubscreenNavTitle}>Plan</Text>
+            <Text style={styles.menuSubscreenNavTitle}>Split</Text>
           </View>
 
           <WeeklySplitPlanBuilder
